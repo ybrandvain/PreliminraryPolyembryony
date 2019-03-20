@@ -1,6 +1,6 @@
 # Simulating the evolution of polyembryony
 # March 19 2019
-# Yaniv Brandvain for collaborative project with Tanaj & Alex Harkness
+# Yaniv Brandvain for collaborative project with Tanja P & Alex Harkness
 library(tidyverse)
 
 ##########################
@@ -122,7 +122,33 @@ makeBabies        <- function(tmp.genomes, mates){
     gather(key = parent, value = haplo, -mating, - embryo)                          %>% # syngamy
     unnest(haplo)                                                              # not sure about unnesting here.... 
 }
-
+summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
+  selected  <- selectedEmbryos %>% mutate(p = paste(mating, embryo)) %>% select(p)%>% pull 
+  muts      <- tmp.genomes %>% group_by(s,h,timing) %>% tally() %>% ungroup()
+  w.summary <- left_join(
+    embryos                              %>%
+      group_by(mating)                                 %>%
+      mutate(mono = sum(parent == "mat" & s == 10))    %>%
+      getFitness(dev.to.exclude = "L", adult = FALSE)  %>% ungroup() %>%
+             mutate(w_early = w) %>% select(-w)       ,
+    embryos                                            %>%
+      group_by(mating)                                 %>%
+      mutate(mono = sum(parent == "mat" & s == 10))    %>% ungroup() %>%
+      getFitness(dev.to.exclude = "E", adult = FALSE)  %>% ungroup() %>%
+      mutate(w_late = w) %>% select(-w), 
+    by = c("mating", "embryo", "mono"))               %>% 
+    left_join(
+      mates %>%
+        mutate(e1 = mom == dad1, e2 = mom == dad2)     %>%
+        select(- mom , -dad1 , -dad2)                  %>% 
+        gather(key = embryo, value = self, -mating),
+      by = c("mating", "embryo"))                      %>% 
+    mutate(z = paste(mating, embryo), 
+           chosen = z %in% selected )                  %>%
+    select(-z)
+  list(genome = tmp.genomes, 
+       summaries = bind_cols(nest(muts),nest(w.summary)) %>% select(muts = data, w = data1))
+}
 ##########################
 ##########################
 ##########################
@@ -137,14 +163,14 @@ oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.ef
   selectedEmbryos <- favoriteChild(kidsW)                                                # pick your child !
   tmp.genomes     <- grabInds(selectedEmbryos = selectedEmbryos, embryos = embryos) %>%  # extract the genomes of selected embryos from our chosen children
     mutate(ind = as.numeric(factor(rank(ind, ties.method = "min"))))                     # ugh.. this last line is kinda gross. but necessary. in means inds are numbered 1:n... this is importnat for  other bits above
-  return(tmp.genomes)
+  summarizeGen(tmp.genomes, mates, embryos, selectedEmbryos)
 }
 # running for a bunhc of generations
 runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "uniform", 
                    dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/3, B = 1/3, L = 1/3), 
-                   introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL){
+                   introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NULL){
   # n.inds           =      1000, 
-  # selfing.rate     =         0, # recall selfing =0 is RANDOM MATING and DOES NOT PRECLUDE SELFING
+  # selfing.rate     =         0, # recall selfing = 0 is RANDOM MATING and DOES NOT PRECLUDE SELFING
   # U                =         1, 
   # fitness.effects  = "uniform", # need to implement more options. currently takes a fixed val or "uniform"
   # dom.effects      = "uniform", # need to implement more options. currently takes a fixed val or "uniform"
@@ -153,14 +179,27 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "u
   # introduce.polyem = Inf       , # gen at which we introduce polyembryony allele
   # polyemb.p0       = .01       , # freq of polyembryony allele once introduced
   # genomes          = NULL        # An option to hand genomes from a previous run
-  genomes      <- initializeGenomes(n.inds, genomes) # Make genomes   # will need to keep track of things... but what?
-  g <- 0
+  # genome.id        = NULL 
+  g            <- 0
+  ans          <- list(genome = initializeGenomes(n.inds, genomes)) # Make genomes   # will need to keep track of things... but what?
+  gen.summary  <- list()
   while(g < n.gen){  # or stopping rule tbd   # i realize this should be a for loop, but sense that a while loop will give me flexibility for broader stopping rules
-    if(g == introduce.polyem){genomes <- introducePoly(genomes, polyemb.p0)} # introduce polyembryony allele
-    g         <- g + 1
-    genomes   <- oneGen(genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing)
-    # NOTE: I prolly want to return a list with more stuff in future in addition to genomes
+    if(g == introduce.polyem){ans$genome <- introducePoly(ans$genome, polyemb.p0)} # introduce polyembryony allele
+    g                 <- g + 1
+    ans               <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing)
+    gen.summary[[g]]  <- ans$summaries
+    print(g)
   }
-  return(genomes)
+  gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
+  return(list(
+    genome      = ans$genome,
+    gen.summary = gen.summary,
+    params      = c(n.inds = n.inds, selfing.rate = selfing.rate, U = U, fitness.effects = fitness.effects,
+                    dom.effects = dom.effects, n.gen = n.gen, g = g, 
+                    dist.timing = paste(round(dist.timing, digits = 2), collapse = ":"),
+                    introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
+                    existing.genome = !is.null(genomes), genom.id = genome.id)
+  ))
 }
+
 runSim(n.gen = 5)
