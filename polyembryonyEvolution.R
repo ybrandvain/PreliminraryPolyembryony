@@ -106,12 +106,12 @@ doMeiosis         <- function(tmp.genomes, parents){
   dev.transmit <- to.meios                                      %>% 
     filter(poly.allele)                                         %>%
     group_by(mating)                                            %>%
-    sample_n(size = 1)                                          %>%
+    sample_n(size = 1, replace = FALSE)                         %>%
     ungroup()
   # now shove them all together
   bind_rows(random.alleles, hom.transmit, dev.transmit )        %>% 
     nest(-mating)                                               %>% 
-    arrange(mating)
+    arrange(mating) 
 }
 makeBabies        <- function(tmp.genomes, mates){   
   bind_cols(
@@ -136,7 +136,7 @@ oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.ef
   kidsW           <- embryoFitness(embryos)
   selectedEmbryos <- favoriteChild(kidsW)                                                # pick your child !
   tmp.genomes     <- grabInds(selectedEmbryos = selectedEmbryos, embryos = embryos) %>%  # extract the genomes of selected embryos from our chosen children
-    mutate(ind = as.numeric(factor(sort(rank(ind, ties.method = "min")))))               # ugh.. this last line is kinda gross. but necessary. in means inds are numbered 1:n... this is importnat for  other bits above
+    mutate(ind = as.numeric(factor(rank(ind, ties.method = "min"))))                     # ugh.. this last line is kinda gross. but necessary. in means inds are numbered 1:n... this is importnat for  other bits above
   return(tmp.genomes)
 }
 # running for a bunhc of generations
@@ -158,8 +158,9 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "u
   while(g < n.gen){  # or stopping rule tbd   # i realize this should be a for loop, but sense that a while loop will give me flexibility for broader stopping rules
     if(g == introduce.polyem){genomes <- introducePoly(genomes, polyemb.p0)} # introduce polyembryony allele
     g         <- g + 1
-    genomes  <- oneGen(genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing)
+    genomes   <- oneGen(genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing)
     # NOTE: I prolly want to return a list with more stuff in future in addition to genomes
   }
+  return(genomes)
 }
-runSim()
+runSim(n.gen = 5)
