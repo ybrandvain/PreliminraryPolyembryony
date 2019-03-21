@@ -16,7 +16,7 @@ initializeGenomes <- function(n.inds, genomes){
 introducePoly     <- function(genomes, polyemb.p0){
   genomes %>% 
     mutate(s = case_when(s %in% 10:11 ~ 
-                           sample(x = 10:11,
+                           sample(x = as.double(10:11),
                                   size = n(),
                                   replace = TRUE,
                                   prob = c(1 - polyemb.p0, polyemb.p0)), #10 means monoembryony. 11 means poly
@@ -202,4 +202,4 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "u
   ))
 }
 
-runSim(n.gen = 5)
+z <-runSim(n.gen = 5)
