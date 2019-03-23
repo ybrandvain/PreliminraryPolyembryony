@@ -6,27 +6,29 @@ library(tidyverse)
 ##########################
 # How to live 
 ##########################
-initializeGenomes <- function(n.inds, genomes){
+initializeGenomes <- function(n.inds, genomes = NULL){
   if(!is.null(genomes)){return(genomes)}
   tibble(ind    = rep(1:n.inds,2), 
-         s      = 10,    # 10 means monoembryony. 11 means poly
-         h      = 1,     # might change for convicence.. currently meaningless
+         id     = 10,    # 10 means monoembryony. 11 means poly
+         s      =  0,
+         h      =  1,    # might change for convinience.. currently meaningless
          timing = "D")
 }
 introducePoly     <- function(genomes, polyemb.p0){
   genomes %>% 
-    dplyr::mutate(s = case_when(s %in% 10:11 ~ 
+    dplyr::mutate(id = case_when(id %in% 10:11 ~ 
                            sample(x = as.double(10:11),
                                   size = n(),
                                   replace = TRUE,
                                   prob = c(1 - polyemb.p0, polyemb.p0)), #10 means monoembryony. 11 means poly
-                         !s %in% 10:11 ~ s))
+                         !id %in% 10:11 ~ id))
 }
 addMutations      <- function(tmp.genomes, U, fitness.effects, dom.effects, dist.timing, n.inds){
-  getVal <- function(thing, num, this.min = 0, this.max = 1){
-    if(is.numeric(thing)) {return(rep(thing, num))}
-    if(fitness.effects == "uniform"){return(runif(n = n.muts, min = this.min, this.max))}
-    recover()
+  getVal <- function(thing, num, this.min = 0, this.max = 1, prelim.vals = NULL){
+    if(is.null(prelim.vals)){ prelim.vals <- runif(n = num, min = this.min, this.max) }
+    if(thing == "uniform") {   return(prelim.vals)  }
+    if(is.numeric(thing))  {   return(rep(thing, num))}
+    recover() # we can transform normal to an dist here
   }
   inds   <-   unique(tmp.genomes$ind)
   n.muts <-   rpois(1, U * length(inds) )
@@ -36,22 +38,21 @@ addMutations      <- function(tmp.genomes, U, fitness.effects, dom.effects, dist
                                    size    = n.muts,                         # number of muts defined
                                    replace = TRUE,                           # obviously
                                    prob    = dist.timing),                   # right now all muts equi-probable. can change this
-                   s = getVal(thing = fitness.effects, num = n.muts, this.min = 4/n.inds),
-                   h = getVal(thing = dom.effects, num = n.muts))  %>%    # s from uniform as described in ms. can change
+                   id = getVal(thing = "uniform", num = n.muts, this.min = 4/n.inds),
+                   s  = getVal(thing = fitness.effects, num = n.muts, this.min = 4/n.inds, prelim.vals = id),
+                   h  = getVal(thing = dom.effects, num = n.muts))  %>%    # s from uniform as described in ms. can change
               dplyr::mutate(s = ifelse(timing == "B", (1-sqrt(1-s)),s)))   
 }
 getFitness        <- function(tmp.genomes, dev.to.exclude, adult = TRUE){
   ind.genomes <- tmp.genomes  %>% ungroup()                           %>%
-    dplyr::mutate(dup = as.numeric(duplicated(tmp.genomes)))                 %>%
+    dplyr::mutate(dup = as.numeric(duplicated(tmp.genomes)))          %>%
     dplyr::filter(!duplicated(tmp.genomes, fromLast = TRUE) & 
            !timing %in% dev.to.exclude)                               %>%
-    dplyr::mutate(s = ifelse(timing == "D", 0, s),
-           w.loc = 1 - (1-dup) * h * s - dup *s,
-           mono = ifelse(!adult, mean(mono),NA ))        
-  if(adult) {ind.genomes  <- ind.genomes %>% group_by(ind)}
-  if(!adult){ind.genomes <- ind.genomes %>% group_by(mating, embryo)}
+    dplyr::mutate(w.loc = 1 - (1-dup) * h * s - dup *s)       
+  if(adult) {ind.genomes  <- ind.genomes %>% mutate(mono = NA)%>% group_by(ind)}
+  if(!adult){ind.genomes  <- ind.genomes %>% group_by(mating, embryo)}
   ind.genomes                                                         %>%   
-    dplyr::summarise(w = prod(w.loc), mono = mean(mono))  
+    dplyr::summarise(w = prod(w.loc), mono = mean(mono))    
 }
 findMates         <- function(adult.fitness, selfing.rate, n.inds){
   outbred.parents <- replicate(3,with(adult.fitness, sample(ind, size = n.inds, replace = TRUE, prob = w ))) 
@@ -65,8 +66,8 @@ findMates         <- function(adult.fitness, selfing.rate, n.inds){
 embryoFitness     <- function(tmp.embryos){
   tmp.embryos                                                 %>% 
     dplyr::group_by(mating)                                   %>%
-    dplyr::mutate(mono = sum(parent == "mat" & s == 10))      %>%       
-    dplyr::filter( !(mono == 2 & embryo == "e2") )            %>% 
+    dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)   %>%       
+    dplyr::filter( !(mono == 1 & embryo == "e2") )            %>% 
     dplyr::group_by(embryo, add = TRUE)                       %>% ungroup() %>%
     getFitness(dev.to.exclude = "L", adult = FALSE)           %>% ungroup() 
 }
@@ -84,7 +85,7 @@ grabInds          <- function(selectedEmbryos, embryos){
   embryos %>% 
     dplyr::mutate(combo = paste(mating, embryo)) %>% 
     dplyr::filter(combo %in% embryoId) %>%
-    dplyr::select(ind = mating, s = s, h = h, timing = timing) 
+    dplyr::select(ind = mating, id = id, s = s, h = h, timing = timing) 
 }
 doMeiosis         <- function(tmp.genomes, parents){
   to.meios <- nest(tmp.genomes, -ind)  %>% 
@@ -92,7 +93,7 @@ doMeiosis         <- function(tmp.genomes, parents){
     dplyr::mutate(mating = 1:length(parents)) %>%
     dplyr::select(mating, data)               %>%
     unnest()           
-  poly.allele     <- to.meios$s %in% 10:11 
+  poly.allele     <- to.meios$id %in% 10:11 
   to.transmit.hom <- duplicated(to.meios, fromLast = FALSE) & !poly.allele
   pick.one        <- duplicated(to.meios, fromLast = TRUE) | poly.allele  | to.transmit.hom
   # first tranmit het alleels at random
@@ -124,16 +125,16 @@ makeBabies        <- function(tmp.genomes, mates){
 }
 summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
   selected  <- selectedEmbryos %>% mutate(p = paste(mating, embryo)) %>% select(p)%>% pull 
-  muts      <- tmp.genomes %>% group_by(s,h,timing) %>% tally() %>% ungroup()
+  muts      <- tmp.genomes %>% mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% group_by(s,h,timing) %>% tally() %>% ungroup()
   w.summary <- left_join(
     embryos                              %>%
       dplyr::group_by(mating)                                 %>%
-      dplyr::mutate(mono = sum(parent == "mat" & s == 10))    %>%
+      dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)    %>%
       getFitness(dev.to.exclude = "L", adult = FALSE)  %>% ungroup() %>%
              mutate(w_early = w) %>% select(-w)       ,
     embryos                                            %>%
       dplyr::group_by(mating)                                 %>%
-      dplyr::mutate(mono = sum(parent == "mat" & s == 10))    %>% ungroup() %>%
+      dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)    %>% ungroup() %>%
       getFitness(dev.to.exclude = "E", adult = FALSE)  %>% ungroup() %>%
       dplyr::mutate(w_late = w) %>% select(-w), 
     by = c("mating", "embryo", "mono"))               %>% 
@@ -146,8 +147,9 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
     dplyr::mutate(z = paste(mating, embryo), 
            chosen = z %in% selected )                  %>%
     dplyr::select(-z)
-  list(genome = tmp.genomes, 
-       summaries = bind_cols(nest(muts),nest(w.summary)) %>% select(muts = data, w = data1))
+  list(genome = tmp.genomes %>% mutate, 
+       summaries = bind_cols(nest(muts),nest(w.summary)) %>% 
+         select(muts = data, w = data1))
 }
 ##########################
 ##########################
@@ -165,7 +167,7 @@ oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.ef
     mutate(ind = as.numeric(factor(rank(ind, ties.method = "min"))))                     # ugh.. this last line is kinda gross. but necessary. in means inds are numbered 1:n... this is importnat for  other bits above
   summarizeGen(tmp.genomes, mates, embryos, selectedEmbryos)
 }
-# running for a bunhc of generations
+# running for a bunch of generations
 runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "uniform", 
                    dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/3, B = 1/3, L = 1/3), 
                    introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NULL){
@@ -202,5 +204,4 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "u
   ))
 }
 
-z <-runSim(n.gen = 5,introduce.polyem = 4)
-
+z <-runSim(n.gen = 5,introduce.polyem = 4, polyemb.p0 = .5)
