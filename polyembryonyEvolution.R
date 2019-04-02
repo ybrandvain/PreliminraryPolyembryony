@@ -67,16 +67,25 @@ embryoFitness     <- function(tmp.embryos){
   tmp.embryos                                                 %>% 
     dplyr::group_by(mating)                                   %>%
     dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)   %>%       
-    dplyr::filter( !(mono == 1 & embryo == "e2") )            %>% 
+    #dplyr::filter( !(mono == 1 & embryo == "e2") )            %>% 
     dplyr::group_by(embryo, add = TRUE)                       %>% ungroup() %>%
     getFitness(dev.to.exclude = "L", adult = FALSE)           %>% ungroup() 
 }
-favoriteChild     <- function(temp.kidsW){
-  temp.kidsW                                                  %>%
-    dplyr::mutate(alive = rbinom(n = n(),size = 1,prob = w ) )%>% 
-    dplyr::filter(alive == 1)                                 %>% # here is a place i could add a cost to mon or ploy by fucking with fitness. for ecample i could ensure that the prob survival is the same !!!
-    dplyr::group_by(mating)                                   %>%
-    sample_n(1,weight = w)                                    %>% ungroup()
+favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE){
+  temp.kidsW <- temp.kidsW                                    %>%
+    dplyr::mutate(alive = rbinom(n = n(),size = 1,prob = w ) )
+  if(equalizedW){
+    temp.kidsW <- temp.kidsW   %>% 
+      group_by(mating) %>%
+      mutate(alive = case_when(mono == 1 ~ max(alive), mono != 1 ~ alive)) %>%
+      ungroup()
+  }
+  temp.kidsW <- temp.kidsW                                       %>% 
+    dplyr::filter(alive == 1)                                    %>% 
+    dplyr::filter( !( (mono == 1 | !compete) & embryo == "e2") )
+  temp.kidsW   %>% 
+     dplyr::group_by(mating)                                   %>%
+     sample_n(1,weight = w)                                    %>% ungroup()
 }
 grabInds          <- function(selectedEmbryos, embryos){
   embryoId  <- dplyr::mutate(selectedEmbryos, winners = paste(mating,embryo)) %>% 
@@ -156,13 +165,13 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
 ##########################
 
 # running one generation
-oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing){
+oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing, equalizedW, compete){
   tmp.genomes     <- addMutations(tmp.genomes, U, fitness.effects, dom.effects, dist.timing, n.inds)
   adult.fitness   <- getFitness(tmp.genomes, dev.to.exclude = "E")                       # Adult Fitness
   mates           <- findMates(adult.fitness, selfing.rate, n.inds = n.inds)             # Mating / Selection
   embryos         <- makeBabies(tmp.genomes, mates)                                      # meiosis is in here too
   kidsW           <- embryoFitness(embryos)
-  selectedEmbryos <- favoriteChild(kidsW)                                                # pick your child !
+  selectedEmbryos <- favoriteChild(kidsW, equalizedW = equalizedW, compete = compete )                                                # pick your child !
   tmp.genomes     <- grabInds(selectedEmbryos = selectedEmbryos, embryos = embryos) %>%  # extract the genomes of selected embryos from our chosen children
     mutate(ind = as.numeric(factor(rank(ind, ties.method = "min"))))                     # ugh.. this last line is kinda gross. but necessary. in means inds are numbered 1:n... this is importnat for  other bits above
   summarizeGen(tmp.genomes, mates, embryos, selectedEmbryos)
@@ -170,6 +179,7 @@ oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.ef
 # running for a bunch of generations
 runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "uniform", 
                    dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/3, B = 1/3, L = 1/3), 
+                   equalizedW = TRUE, compete = TRUE ,
                    introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NULL){
   # n.inds           =      1000, 
   # selfing.rate     =         0, # recall selfing = 0 is RANDOM MATING and DOES NOT PRECLUDE SELFING
@@ -178,6 +188,8 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "u
   # dom.effects      = "uniform", # need to implement more options. currently takes a fixed val or "uniform"
   # n.gen            =      1000, # prob should add an option like "until lost/fixed"
   # dist.timing      = c(E = 1/3, B = 1/3, L = 1/3),
+  # equalizedW       = TRU. Eshould the expected number of embryos produced by mono and poplyembryonic genos be equivalent? Achieved by group sel at level of mom
+  # compete          = compete = TRUE , should embryos be chosen at random or with respect to their fitnesses? 
   # introduce.polyem = Inf       , # gen at which we introduce polyembryony allele
   # polyemb.p0       = .01       , # freq of polyembryony allele once introduced
   # genomes          = NULL        # An option to hand genomes from a previous run
@@ -188,7 +200,8 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "u
   while(g < n.gen){  # or stopping rule tbd   # i realize this should be a for loop, but sense that a while loop will give me flexibility for broader stopping rules
     if(g == introduce.polyem){ans$genome <- introducePoly(ans$genome, polyemb.p0)} # introduce polyembryony allele
     g                 <- g + 1
-    ans               <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing)
+    ans               <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
+                                dom.effects, dist.timing, equalizedW = equalizedW, compete = compete)
     gen.summary[[g]]  <- ans$summaries
     print(g)
   }
