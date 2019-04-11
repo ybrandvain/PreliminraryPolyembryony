@@ -50,7 +50,6 @@ fitnessTime <- function(output, focal = "all"){
     tidyr::unnest(w, .drop = TRUE)      
   if (focal=="mono") {output.gen.summary <-  output.gen.summary  %>% filter(.,mono == 2) }
   if (focal=="poly") {output.gen.summary <-  output.gen.summary  %>% filter(.,mono == 0) }
-  recover()
   # all
   w.summary <- output.gen.summary %>% 
     group_by(gen)    %>%
