@@ -17,11 +17,11 @@ initializeGenomes <- function(n.inds, genomes = NULL){
 introducePoly     <- function(genomes, polyemb.p0){
   genomes %>% 
     dplyr::mutate(id = case_when(id %in% 10:11 ~ 
-                           sample(x = as.double(10:11),
-                                  size = n(),
-                                  replace = TRUE,
-                                  prob = c(1 - polyemb.p0, polyemb.p0)), #10 means monoembryony. 11 means poly
-                         !id %in% 10:11 ~ id))
+                                   sample(x = as.double(10:11),
+                                          size = n(),
+                                          replace = TRUE,
+                                          prob = c(1 - polyemb.p0, polyemb.p0)), #10 means monoembryony. 11 means poly
+                                 !id %in% 10:11 ~ id))
 }
 addMutations      <- function(tmp.genomes, U, fitness.effects, dom.effects, dist.timing, n.inds){
   getVal <- function(thing, num, this.min = 0, this.max = 1, prelim.vals = NULL){
@@ -47,7 +47,7 @@ getFitness        <- function(tmp.genomes, dev.to.exclude, adult = TRUE){
   ind.genomes <- tmp.genomes  %>% ungroup()                           %>%
     dplyr::mutate(dup = as.numeric(duplicated(tmp.genomes)))          %>%
     dplyr::filter(!duplicated(tmp.genomes, fromLast = TRUE) & 
-           !timing %in% dev.to.exclude)                               %>%
+                    !timing %in% dev.to.exclude)                               %>%
     dplyr::mutate(w.loc = 1 - (1-dup) * h * s - dup *s)       
   if(adult) {ind.genomes  <- ind.genomes %>% mutate(mono = NA)%>% group_by(ind)}
   if(!adult){ind.genomes  <- ind.genomes %>% group_by(mating, embryo)}
@@ -84,8 +84,8 @@ favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE){
     dplyr::filter(alive == 1)                                    %>% 
     dplyr::filter( !( (mono == 1 | !compete) & embryo == "e2") )
   temp.kidsW   %>% 
-     dplyr::group_by(mating)                                   %>%
-     sample_n(1,weight = w)                                    %>% ungroup()
+    dplyr::group_by(mating)                                   %>%
+    sample_n(1,weight = w)                                    %>% ungroup()
 }
 grabInds          <- function(selectedEmbryos, embryos){
   embryoId  <- dplyr::mutate(selectedEmbryos, winners = paste(mating,embryo)) %>% 
@@ -140,7 +140,7 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
       dplyr::group_by(mating)                                 %>%
       dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)    %>%
       getFitness(dev.to.exclude = "L", adult = FALSE)  %>% ungroup() %>%
-             mutate(w_early = w) %>% select(-w)       ,
+      mutate(w_early = w) %>% select(-w)       ,
     embryos                                            %>%
       dplyr::group_by(mating)                                 %>%
       dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)    %>% ungroup() %>%
@@ -153,13 +153,21 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
         dplyr::select(- mom , -dad1 , -dad2)                  %>% 
         gather(key = embryo, value = self, -mating),
       by = c("mating", "embryo"))                      %>% 
+    left_join(
+      embryos                                              %>%
+        dplyr::group_by(mating, embryo)                     %>%
+        summarise(n_E = sum(timing == "E")  ,
+                  n_B = sum(timing == "B") , 
+                  n_L = sum(timing == "L") ) ,       
+      by = c("mating", "embryo"))         %>%
     dplyr::mutate(z = paste(mating, embryo), 
-           chosen = z %in% selected )                  %>%
-    dplyr::select(-z)
+                  chosen = z %in% selected )                  %>%
+    dplyr::select(-z)      
   list(genome = tmp.genomes %>% mutate, 
        summaries = bind_cols(nest(muts),nest(w.summary)) %>% 
          select(muts = data, w = data1))
 }
+
 ##########################
 ##########################
 ##########################
@@ -178,9 +186,10 @@ oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.ef
 }
 # running for a bunch of generations
 runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "uniform", 
-                   dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/3, B = 1/3, L = 1/3), 
+                   dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/2, B = 0, L = 1/2), 
                    equalizedW = TRUE, compete = TRUE ,
-                   introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NULL){
+                   introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NULL,
+                   gen.after.loss   = 1,gen.after.fix    = 1){
   # n.inds           =      1000, 
   # selfing.rate     =         0, # recall selfing = 0 is RANDOM MATING and DOES NOT PRECLUDE SELFING
   # U                =         1, 
@@ -194,17 +203,26 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   # polyemb.p0       = .01       , # freq of polyembryony allele once introduced
   # genomes          = NULL        # An option to hand genomes from a previous run
   # genome.id        = NULL 
+  # gen.after.loss   = 1
+  # gen.after.fix    = 1
   g             <- 0
+  g.after.fix   <- 0 
+  g.after.loss  <- 0 
   #g.since.fixed <- 0
   ans           <- list(genome = initializeGenomes(n.inds, genomes)) # Make genomes   # will need to keep track of things... but what?
-  gen.summary   <- list()
-  while(g < n.gen){  # or stopping rule tbd   # i realize this should be a for loop, but sense that a while loop will give me flexibility for broader stopping rules
+  keep.going = TRUE
+  fix
+  while(keep.going){  # or stopping rule tbd   # i realize this should be a for loop, but sense that a while loop will give me flexibility for broader stopping rules
     if(g == introduce.polyem){ans$genome <- introducePoly(ans$genome, polyemb.p0)} # introduce polyembryony allele
     g                 <- g + 1
     ans               <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
                                 dom.effects, dist.timing, equalizedW = equalizedW, compete = compete)
     gen.summary[[g]]  <- ans$summaries
     print(g)
+    status <- t(ans$genome  %>% filter(timing == "D")  %>% summarise(loss = sum(id == 11) == 0 , fix = sum(id == 10) == 0) )
+    g.after.fix    <- g.after.fix   + as.numeric(status["fix",])
+    g.after.loss   <- g.after.loss  + as.numeric(status["loss",])
+    if(g >= n.gen   &  (g.after.loss >=  gen.after.loss)   |   (g.after.fix >=  gen.after.fix)){keep.going = FALSE} 
   }
   gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
   return(list(
@@ -217,5 +235,5 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
                     existing.genome = !is.null(genomes), genom.id = genome.id)
   ))
 }
+z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = 0)
 
-z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0)

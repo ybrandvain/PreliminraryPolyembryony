@@ -3,13 +3,13 @@
 ### How to handle output
 ## Summaries
 freqP <- function(output){
-  # Find the fequency of polyembryony allele over generations
-  output$gen.summary                            %>% 
-    tidyr::unnest(muts, .drop = TRUE)           %>%
-    dplyr::filter(timing == "D")                %>%  
-    tidyr::spread(key = s, value = n, fill = 0) %>%
-    dplyr::group_by(gen)                        %>%
-    dplyr::summarise(p_poly = `11` / (`10` + `11`))
+  output$gen.summary %>%
+    tidyr::unnest(muts, .drop = TRUE) %>%
+    dplyr::filter(timing == "D") %>%
+    dplyr::group_by(gen) %>%
+    mutate(tot = sum(n)) %>%
+    filter(s == 10) %>%
+    summarise(p = 1-n/tot)
 }
 
 mutfreq <- function(output){
@@ -20,11 +20,11 @@ mutfreq <- function(output){
 
 numUnique <- function(output){
   # Find the fequency of polyembryony allele over generations
-  output$gen.summary                            %>% 
+  output$gen.summary                            %>%
     tidyr::unnest(muts, .drop = TRUE)           %>%
     filter(!s %in% c(10,11))                    %>%
     dplyr::group_by(gen)                        %>%
-    dplyr::summarise(n_uqiue_muts = n() )
+    dplyr::summarise(n_unique_muts = n() )
 }
 
 
@@ -53,47 +53,47 @@ fitnessTime <- function(output, focal = "all"){
   # all
   w.summary <- output.gen.summary %>% 
     group_by(gen)    %>%
-    summarize(mean.early = mean(w_early), mean.late  = mean(w_late)) %>% left_join(.,
+    summarize(mean.early = mean(w_early), mean.late  = mean(w_late), mean.mut.early = mean(n_E), mean.mut.late  = mean(n_L)) %>% left_join(.,
   # chosen
   output.gen.summary %>% 
     filter(chosen)   %>%
     group_by(gen)    %>%
-    summarize(mean.early.chosen = mean(w_early), mean.late.chosen  = mean(w_late)), by = "gen" ) %>% left_join(.,
+    summarize(mean.early.chosen = mean(w_early), mean.late.chosen  = mean(w_late), mean.mut.early.chosen = mean(n_E), mean.mut.late.chosen  = mean(n_L)), by = "gen" ) %>% left_join(.,
   # not chosen
   output.gen.summary %>% 
     filter(!chosen)   %>%
     group_by(gen)    %>%
-    summarize(mean.early.notchosen = mean(w_early), mean.late.notchosen  = mean(w_late)), by = "gen" ) %>%  left_join(.,
+    summarize(mean.early.notchosen = mean(w_early), mean.late.notchosen  = mean(w_late), mean.mut.early.notchosen = mean(n_E), mean.mut.late.notchosen  = mean(n_L)), by = "gen" ) %>%  left_join(.,
   # self
   output.gen.summary %>% 
     filter(self)   %>%
     group_by(gen)    %>%
-    summarize(mean.early.self = mean(w_early), mean.late.self  = mean(w_late)) , by = "gen" ) %>%  left_join(.,
+    summarize(mean.early.self = mean(w_early), mean.late.self  = mean(w_late), mean.mut.early.self = mean(n_E), mean.mut.late.self  = mean(n_L)) , by = "gen" ) %>%  left_join(.,
   # out
   output.gen.summary %>% 
     filter(!self)   %>%
     group_by(gen)    %>%
-    summarize(mean.early.out = mean(w_early), mean.late.out  = mean(w_late)) , by = "gen" ) %>%  left_join(.,
+    summarize(mean.early.out = mean(w_early), mean.late.out  = mean(w_late), mean.mut.early.our = mean(n_E), mean.mut.late.our  = mean(n_L)) , by = "gen" ) %>%  left_join(.,
   # self chosen
   output.gen.summary %>% 
     group_by(gen)    %>%
     filter(self & chosen)   %>%
-    summarize(mean.early.selfchosen = mean(w_early), mean.late.selfchosen  = mean(w_late)), by = "gen" ) %>%  left_join(.,
+    summarize(mean.early.selfchosen = mean(w_early), mean.late.selfchosen  = mean(w_late), mean.mut.early.selfchosen = mean(n_E), mean.mut.late.selfchosen  = mean(n_L)), by = "gen" ) %>%  left_join(.,
   # self notchosen
   output.gen.summary %>% 
     filter(self & !chosen)   %>%
     group_by(gen)    %>%
-    summarize(mean.early.selfnotchosen = mean(w_early), mean.late.selfnotchosen  = mean(w_late)) , by = "gen" ) %>%  left_join(.,
+    summarize(mean.early.selfnotchosen = mean(w_early), mean.late.selfnotchosen  = mean(w_late), mean.mut.early.selfnotchosen = mean(n_E), mean.mut.late.selfnotchosen  = mean(n_L)) , by = "gen" ) %>%  left_join(.,
   # out chosen
   output.gen.summary %>% 
     filter(!self & chosen)   %>%
     group_by(gen)    %>%
-    summarize(mean.early.outchosen = mean(w_early), mean.late.outchosen  = mean(w_late)) , by = "gen" )%>%  left_join(.,
+    summarize(mean.early.outchosen = mean(w_early), mean.late.outchosen  = mean(w_late), mean.mut.early.outchosen = mean(n_E), mean.mut.late.outchosen  = mean(n_L)) , by = "gen" )%>%  left_join(.,
   # out notchosen
   output.gen.summary %>% 
     filter(!self & !chosen)   %>%
     group_by(gen)    %>%
-    summarize(mean.early.outnotchosen = mean(w_early), mean.late.outnotchosen  = mean(w_late)), by = "gen" ) 
+    summarize(mean.early.outnotchosen = mean(w_early), mean.late.outnotchosen  = mean(w_late), mean.mut.early.outnotchosen = mean(n_E), mean.mut.late.outnotchosen  = mean(n_L)), by = "gen" ) 
   w.summary 
 }
 
