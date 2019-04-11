@@ -134,7 +134,7 @@ makeBabies        <- function(tmp.genomes, mates){
 }
 summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
   selected  <- selectedEmbryos %>% mutate(p = paste(mating, embryo)) %>% select(p)%>% pull 
-  muts      <- tmp.genomes %>% mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% group_by(s,h,timing) %>% tally() %>% ungroup()
+  muts      <- tmp.genomes %>% mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% group_by(id,s,h,timing) %>% tally() %>% ungroup()
   w.summary <- left_join(
     embryos                              %>%
       dplyr::group_by(mating)                                 %>%
@@ -177,7 +177,7 @@ oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.ef
   summarizeGen(tmp.genomes, mates, embryos, selectedEmbryos)
 }
 # running for a bunch of generations
-runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "uniform", 
+runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "uniform", 
                    dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/3, B = 1/3, L = 1/3), 
                    equalizedW = TRUE, compete = TRUE ,
                    introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NULL){
@@ -194,9 +194,10 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "u
   # polyemb.p0       = .01       , # freq of polyembryony allele once introduced
   # genomes          = NULL        # An option to hand genomes from a previous run
   # genome.id        = NULL 
-  g            <- 0
-  ans          <- list(genome = initializeGenomes(n.inds, genomes)) # Make genomes   # will need to keep track of things... but what?
-  gen.summary  <- list()
+  g             <- 0
+  #g.since.fixed <- 0
+  ans           <- list(genome = initializeGenomes(n.inds, genomes)) # Make genomes   # will need to keep track of things... but what?
+  gen.summary   <- list()
   while(g < n.gen){  # or stopping rule tbd   # i realize this should be a for loop, but sense that a while loop will give me flexibility for broader stopping rules
     if(g == introduce.polyem){ans$genome <- introducePoly(ans$genome, polyemb.p0)} # introduce polyembryony allele
     g                 <- g + 1
@@ -217,4 +218,4 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = 1, fitness.effects  = "u
   ))
 }
 
-z <-runSim(n.gen = 5,introduce.polyem = 4, polyemb.p0 = .5)
+z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0)
