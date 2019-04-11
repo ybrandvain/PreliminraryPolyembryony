@@ -12,6 +12,21 @@ freqP <- function(output){
     dplyr::summarise(p_poly = `11` / (`10` + `11`))
 }
 
+mutfreq <- function(output){
+  output$gen.summary                            %>% 
+  tidyr::unnest(muts, .drop = TRUE)             %>%
+  filter(!s %in% c(10,11))
+}
+
+numUnique <- function(output){
+  # Find the fequency of polyembryony allele over generations
+  output$gen.summary                            %>% 
+    tidyr::unnest(muts, .drop = TRUE)           %>%
+    filter(!s %in% c(10,11))                    %>%
+    dplyr::group_by(gen)                        %>%
+    dplyr::summarise(n_uqiue_muts = n() )
+}
+
 
 
 selfingRealized <- function(output){
@@ -35,6 +50,7 @@ fitnessTime <- function(output, focal = "all"){
     tidyr::unnest(w, .drop = TRUE)      
   if (focal=="mono") {output.gen.summary <-  output.gen.summary  %>% filter(.,mono == 2) }
   if (focal=="poly") {output.gen.summary <-  output.gen.summary  %>% filter(.,mono == 0) }
+  recover()
   # all
   w.summary <- output.gen.summary %>% 
     group_by(gen)    %>%
@@ -93,6 +109,8 @@ fitnessTime(output = z, focal = "all")
 fitnessTime(output = z, focal = "mono")
 fitnessTime(output = z, focal = "poly")
 freqP(z)
+mutfreq(z) 
+numUnique(z)
 # selfingRealized(z)
 # fitnessDataFrame(z) 
 # genosDataFrame(z)
