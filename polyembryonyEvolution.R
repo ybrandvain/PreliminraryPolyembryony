@@ -77,7 +77,7 @@ favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE){
   if(equalizedW){
     temp.kidsW <- temp.kidsW   %>% 
       group_by(mating) %>%
-      mutate(alive = case_when(mono == 1 ~ max(alive), mono != 1 ~ alive)) %>%
+      mutate(alive = ifelse(mono == 1 , max(alive),  alive))     %>%
       ungroup()
   }
   temp.kidsW <- temp.kidsW                                       %>% 
