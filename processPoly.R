@@ -30,12 +30,12 @@ selfingRealized <- function(output){
 
 
 fitnessTime <- function(output, focal = "all"){
+  recover()
   # this code is so ugly.. don't look at it
   output.gen.summary <-   output$gen.summary      %>% 
-    tidyr::unnest(w, .drop = TRUE)                %>%
-    {if (focal=="mono") filter(.,mono == 2) else if 
-      (focal == "poly") filter(.,mono == 0) else 
-        filter(.,mono %in% c(0,2))} 
+    tidyr::unnest(w, .drop = TRUE)      
+  if (focal=="mono") {output.gen.summary <-  output.gen.summary  %>% filter(.,mono == 2) }
+  if (focal=="poly") {output.gen.summary <-  output.gen.summary  %>% filter(.,mono == 0) }
   # all
   w.summary <- output.gen.summary %>% 
     group_by(gen)    %>%
