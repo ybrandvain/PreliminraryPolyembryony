@@ -30,7 +30,6 @@ selfingRealized <- function(output){
 
 
 fitnessTime <- function(output, focal = "all"){
-  recover()
   # this code is so ugly.. don't look at it
   output.gen.summary <-   output$gen.summary      %>% 
     tidyr::unnest(w, .drop = TRUE)      
