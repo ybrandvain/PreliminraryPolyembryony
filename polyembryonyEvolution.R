@@ -67,8 +67,9 @@ embryoFitness     <- function(tmp.embryos){
   tmp.embryos                                                 %>% 
     dplyr::group_by(mating)                                   %>%
     dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)   %>%       
-    #dplyr::filter( !(mono == 1 & embryo == "e2") )            %>% 
+    #dplyr::filter( !(mono == 1 & embryo == "e2") )           %>% 
     dplyr::group_by(embryo, add = TRUE)                       %>% ungroup() %>%
+    select(- parent)                                          %>%
     getFitness(dev.to.exclude = "L", adult = FALSE)           %>% ungroup() 
 }
 favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE){
@@ -235,5 +236,5 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
                     existing.genome = !is.null(genomes), genom.id = genome.id)
   ))
 }
-z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = 0)
+z <-runSim(n.gen = 100, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = 0)
 
