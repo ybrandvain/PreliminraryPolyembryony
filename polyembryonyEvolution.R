@@ -224,7 +224,6 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
     g.after.loss   <- g.after.loss  + as.numeric(status["loss",])
     if(g >= n.gen   &  (g.after.loss >=  gen.after.loss)   |   (g.after.fix >=  gen.after.fix)){keep.going = FALSE} 
   }
-  recover()
   gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
   return(list(
     genome      = ans$genome,
