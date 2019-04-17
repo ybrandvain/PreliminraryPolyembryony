@@ -72,7 +72,7 @@ embryoFitness     <- function(tmp.embryos){
     select(- parent)                                          %>%
     getFitness(dev.to.exclude = "L", adult = FALSE)           %>% ungroup() 
 }
-favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE){
+favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE, epsilon = 1e-16){
   temp.kidsW <- temp.kidsW                                    %>%
     dplyr::mutate(alive = rbinom(n = n(),size = 1,prob = w ) )
   if(equalizedW){
@@ -85,8 +85,8 @@ favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE){
     dplyr::filter(alive == 1)                                    %>% 
     dplyr::filter( !( (mono == 1 | !compete) & embryo == "e2") )
   temp.kidsW   %>% 
-    dplyr::group_by(mating)                                   %>%
-    sample_n(1,weight = w)                                    %>% ungroup()
+    dplyr::group_by(mating)                                   %>% # im not sure what this w + epsilon thing does.. but it makes errors go away, and doesnt have any obviously bad concequences
+    sample_n(1,weight = w + epsilon )                         %>% ungroup()  # before it gave error Error in sample.int(n(), check_size(~1, n(), replace = replace), replace = replace,  : too few positive probabilities
 }
 grabInds          <- function(selectedEmbryos, embryos){
   embryoId  <- dplyr::mutate(selectedEmbryos, winners = paste(mating,embryo)) %>% 
@@ -236,5 +236,5 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
                     existing.genome = !is.null(genomes), genom.id = genome.id)
   ))
 }
-z <-runSim(n.gen = 100, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = 0)
+z <-runSim(n.gen = 105, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = 0)
 
