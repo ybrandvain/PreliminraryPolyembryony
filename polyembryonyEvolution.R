@@ -174,7 +174,7 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
 ##########################
 
 # running one generation
-oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing, equalizedW, compete){
+oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing, equalizedW, compete, just.return.genomes){
   tmp.genomes     <- addMutations(tmp.genomes, U, fitness.effects, dom.effects, dist.timing, n.inds)
   adult.fitness   <- getFitness(tmp.genomes, dev.to.exclude = "E")                       # Adult Fitness
   mates           <- findMates(adult.fitness, selfing.rate, n.inds = n.inds)             # Mating / Selection
@@ -183,6 +183,7 @@ oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.ef
   selectedEmbryos <- favoriteChild(kidsW, equalizedW = equalizedW, compete = compete )                                                # pick your child !
   tmp.genomes     <- grabInds(selectedEmbryos = selectedEmbryos, embryos = embryos) %>%  # extract the genomes of selected embryos from our chosen children
     mutate(ind = as.numeric(factor(rank(ind, ties.method = "min"))))                     # ugh.. this last line is kinda gross. but necessary. in means inds are numbered 1:n... this is importnat for  other bits above
+  if(just.return.genomes){return(list(genome = tmp.genomes))}
   summarizeGen(tmp.genomes, mates, embryos, selectedEmbryos)
 }
 # running for a bunch of generations
@@ -190,7 +191,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
                    dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/2, B = 0, L = 1/2), 
                    equalizedW = TRUE, compete = TRUE ,
                    introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NULL,
-                   gen.after.loss   = 1,gen.after.fix    = 1){
+                   gen.after.loss   = 1,gen.after.fix    = 1, just.return.genomes = FALSE){
   # n.inds           =      1000, 
   # selfing.rate     =         0, # recall selfing = 0 is RANDOM MATING and DOES NOT PRECLUDE SELFING
   # U                =         1, 
@@ -217,7 +218,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
     if(g == introduce.polyem){ans$genome <- introducePoly(ans$genome, polyemb.p0)} # introduce polyembryony allele
     g                 <- g + 1
     ans               <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
-                                dom.effects, dist.timing, equalizedW = equalizedW, compete = compete)
+                                dom.effects, dist.timing, equalizedW = equalizedW, compete = compete, just.return.genomes = just.return.genomes)
     gen.summary[[g]]  <- ans$summaries
     print(g)
     status <- t(ans$genome  %>% filter(timing == "D")  %>% summarise(loss = sum(id == 11) == 0 , fix = sum(id == 10) == 0) )
@@ -225,16 +226,16 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
     g.after.loss   <- g.after.loss  + as.numeric(status["loss",])
     if(g >= n.gen   &  (g.after.loss >=  gen.after.loss)   |   (g.after.fix >=  gen.after.fix)){keep.going = FALSE} 
   }
+  params <- c(n.inds = n.inds, selfing.rate = selfing.rate, U = U, fitness.effects = fitness.effects,
+    dom.effects = dom.effects, n.gen = n.gen, g = g, 
+    dist.timing = paste(round(dist.timing, digits = 2), collapse = ":"),
+    introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
+    existing.genome = !is.null(genomes), genom.id = genome.id)
+  
+  if(just.return.genomes){  return( list( genome = ans$genome, params = params )) }
   gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
-  return(list(
-    genome      = ans$genome,
-    gen.summary = gen.summary,
-    params      = c(n.inds = n.inds, selfing.rate = selfing.rate, U = U, fitness.effects = fitness.effects,
-                    dom.effects = dom.effects, n.gen = n.gen, g = g, 
-                    dist.timing = paste(round(dist.timing, digits = 2), collapse = ":"),
-                    introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
-                    existing.genome = !is.null(genomes), genom.id = genome.id)
-  ))
+  return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
-z <-runSim(n.gen = 105, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = 0)
+z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = 0,
+           just.return.genomes = FALSE)
 
