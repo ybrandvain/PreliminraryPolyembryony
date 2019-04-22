@@ -190,7 +190,7 @@ oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.ef
 runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "uniform", 
                    dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/2, B = 0, L = 1/2), 
                    equalizedW = TRUE, compete = TRUE ,
-                   introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NULL,
+                   introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NA,
                    gen.after.loss   = 1,gen.after.fix    = 1, just.return.genomes = FALSE){
   # n.inds           =      1000, 
   # selfing.rate     =         0, # recall selfing = 0 is RANDOM MATING and DOES NOT PRECLUDE SELFING
@@ -220,22 +220,27 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
     ans               <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
                                 dom.effects, dist.timing, equalizedW = equalizedW, compete = compete, just.return.genomes = just.return.genomes)
     gen.summary[[g]]  <- ans$summaries
-    print(g)
+    #print(g)
     status <- t(ans$genome  %>% filter(timing == "D")  %>% summarise(loss = sum(id == 11) == 0 , fix = sum(id == 10) == 0) )
     g.after.fix    <- g.after.fix   + as.numeric(status["fix",])
     g.after.loss   <- g.after.loss  + as.numeric(status["loss",])
     if(g >= n.gen   &  (g.after.loss >=  gen.after.loss)   |   (g.after.fix >=  gen.after.fix)){keep.going = FALSE} 
   }
-  params <- c(n.inds = n.inds, selfing.rate = selfing.rate, U = U, fitness.effects = fitness.effects,
+  
+  fixed <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, TRUE, FALSE))
+  gen.after.fixed.or.lost <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, g.after.fix, g.after.loss ))
+
+  params <- data.frame(n.inds = n.inds, selfing.rate = selfing.rate, U = U, fitness.effects = fitness.effects,
     dom.effects = dom.effects, n.gen = n.gen, g = g, 
     dist.timing = paste(round(dist.timing, digits = 2), collapse = ":"),
     introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
-    existing.genome = !is.null(genomes), genom.id = genome.id)
+    existing.genome = !is.null(genomes), genom.id = genome.id,  last.gen = g, 
+    gen.after.fixed.or.lost  = gen.after.fixed.or.lost, fixed = fixed, equalizedW = equalizedW, compete = compete)
   
   if(just.return.genomes){  return( list( genome = ans$genome, params = params )) }
   gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
-z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = 0,
+z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = Inf,
            just.return.genomes = FALSE)
 
