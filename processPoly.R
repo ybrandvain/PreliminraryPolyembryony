@@ -104,12 +104,12 @@ fitnessTime <- function(output, focal = "all"){
 ## Just give me the fucking data
 fitnessDataFrame <- function(output){ tidyr::unnest(output$gen.summary, w, .drop = TRUE) %>% data.frame()}
 genosDataFrame   <- function(output){ tidyr::unnest(output$gen.summary, muts, .drop = TRUE) %>% data.frame()}
-fitnessTime(output = z, focal = "all")
-fitnessTime(output = z, focal = "mono")
-fitnessTime(output = z, focal = "poly")
-freqP(z)
-mutfreq(z) 
-numUnique(z)
+#fitnessTime(output = z, focal = "all")
+#fitnessTime(output = z, focal = "mono")
+#fitnessTime(output = z, focal = "poly")
+#freqP(z)
+#mutfreq(z) 
+#numUnique(z)
 # selfingRealized(z)
 # fitnessDataFrame(z) 
 # genosDataFrame(z)

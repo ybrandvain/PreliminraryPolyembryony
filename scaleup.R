@@ -1,8 +1,9 @@
 # run a bunch of invasions (we might want to mess with this more)
 
 #runs the scripts
-source("Documents/PolyembryonyWithYaniv/processPoly.R")
-source("Documents/PolyembryonyWithYaniv/polyembryonyEvolution.R")
+source("polyembryonyEvolution.R")
+source("processPoly.R")
+
 
 intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.track.fix = 10, n.initial.poly.copies = 1){
   load(simID)
@@ -11,8 +12,9 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   fitness.effects   <- z$params["fitness.effects"][1,1]
   dom.effects       <- z$params["dom.effects"][1,1]
   poly.models.list  <- list(equalizedW_compete = 1, equalizedW_nocompete = 2, nonequalizedW_compete = 3,nonequalizedW_nocompete = 4)
-  dist.timing       <- as.character(z$params["dist.timing"][1,1])
-  mygenome          <- z$genome
+  dist.timing       <- as.numeric(strsplit(as.character(z$params["dist.timing"][1,1]),":")[[1]])
+  names(dist.timing)<- c("E","B","L")
+  #mygenome          <- z$genome
   intro.results <- lapply(poly.models.list,function(X){
     print(X)
     poly.models[X,]
@@ -22,7 +24,6 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
     colnames(sim.summary) <- colnames(z$params)
     for(i in 1:n.introductions) { # should be n.introductions
       print(i)
-      recover()
       this.sim <- runSim(n.gen   = 0, 
                          fitness.effects     = fitness.effects, 
                          dom.effects         = dom.effects ,  
@@ -32,7 +33,7 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
                          introduce.polyem    = 0,
                          equalizedW          = poly.models[X,"equalizedW"] ,
                          compete             = poly.models[X,"compete"],
-                         genomes             = mygenome,
+                         genomes             = z$genome,
                          genome.id           = simID,
                          just.return.genomes = times.fixed >= n.times.to.track.fix,
                          dist.timing         = dist.timing)
@@ -56,5 +57,5 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   return(list(sim.summary = sim.summary, fixed.details = fixed.details))
 }
 
-a <-intro.poly.run(simID = "Documents/PolyembryonyWithYaniv/BurninGenome_RecessiveLethalEarlyLateSelfing_0.9_10", n.introductions = 2, n.gen.after.fix = 1)
+a <-intro.poly.run(simID = "BurnInGenomes/BurninGenome_RecessiveLethalEarlyLateSelfing_0.9_10", n.introductions = 2, n.gen.after.fix = 1)
 #intro.poly.run(simID = "BurninGenome_RecessiveLethalEarlyLate1", n.introductions = 100, n.gen.after.fix = 500)

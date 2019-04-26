@@ -241,6 +241,5 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
-z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = Inf,
-           just.return.genomes = FALSE)
+#z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = Inf, just.return.genomes = FALSE)
 
