@@ -1,17 +1,18 @@
 # run a bunch of invasions (we might want to mess with this more)
-
+setwd("../../../../../../projects/polyembryony/")
 #runs the scripts
 source("polyembryonyEvolution.R")
 source("processPoly.R")
 
 
-intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.track.fix = 10, n.initial.poly.copies = 1){
+intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.track.fix = 10, n.initial.poly.copies = 1,which.model = 1:4){
   load(simID)
   poly.models       <- data.frame( equalizedW = c(T,T,F,F),  compete = c(T,F,T,F))
   polyemb.p0        <- as.numeric(n.initial.poly.copies / (2 * z$params["n.inds"]))
   fitness.effects   <- z$params["fitness.effects"][1,1]
   dom.effects       <- z$params["dom.effects"][1,1]
   poly.models.list  <- list(equalizedW_compete = 1, equalizedW_nocompete = 2, nonequalizedW_compete = 3,nonequalizedW_nocompete = 4)
+  poly.models.list  <- poly.models.list[which.model] 
   dist.timing       <- as.numeric(strsplit(as.character(z$params["dist.timing"][1,1]),":")[[1]])
   names(dist.timing)<- c("E","B","L")
   #mygenome          <- z$genome
