@@ -1,5 +1,5 @@
 # run a bunch of invasions (we might want to mess with this more)
-setwd("../../../../../../projects/polyembryony/")
+#setwd("projects/polyembryony/")
 #runs the scripts
 source("polyembryonyEvolution.R")
 source("processPoly.R")
@@ -8,6 +8,7 @@ source("processPoly.R")
 intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.track.fix = 10, n.initial.poly.copies = 1,which.model = 1:4){
   load(simID)
   poly.models       <- data.frame( equalizedW = c(T,T,F,F),  compete = c(T,F,T,F))
+  selfing.rate      <- z$params["selfing.rate"][1,1]
   polyemb.p0        <- as.numeric(n.initial.poly.copies / (2 * z$params["n.inds"]))
   fitness.effects   <- z$params["fitness.effects"][1,1]
   dom.effects       <- z$params["dom.effects"][1,1]
@@ -26,6 +27,7 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
     for(i in 1:n.introductions) { # should be n.introductions
       print(i)
       this.sim <- runSim(n.gen   = 0, 
+                         selfing.rate        = selfing.rate, 
                          fitness.effects     = fitness.effects, 
                          dom.effects         = dom.effects ,  
                          gen.after.loss      = 1,  
@@ -47,12 +49,12 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
     return(list(sim.summary = sim.summary,fixed.outcome = fixed.outcome))
   })
   sim.summary   <- as_tibble(do.call(rbind,lapply(intro.results, function(X){X$sim.summary})))
-  fixed.details <- bind_rows(lapply(intro.results$fixed.outcome , function(TMp){
+  fixed.details <- bind_rows(lapply(intro.results, function(TMp){
     bind_rows(lapply(TMp$fixed.outcome, function(TMP){
       bind_cols(as_tibble(nest(TMP$gen.summary)),
                 as_tibble(nest(TMP$genome)),
                 as_tibble(TMP$params))%>% 
-        rename( gen.summary = data , genome = data1)
+        rename(gen.summary = data , genome = data1)
     }))
   }))
   return(list(sim.summary = sim.summary, fixed.details = fixed.details))
