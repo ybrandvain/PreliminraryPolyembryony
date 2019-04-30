@@ -60,5 +60,5 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   return(list(sim.summary = sim.summary, fixed.details = fixed.details))
 }
 
-a <-intro.poly.run(simID = "BurnInGenomes/BurninGenome_RecessiveLethalEarlyLateSelfing_0.9_10", n.introductions = 2, n.gen.after.fix = 1)
-#intro.poly.run(simID = "BurninGenome_RecessiveLethalEarlyLate1", n.introductions = 100, n.gen.after.fix = 500)
+#a <-intro.poly.run(simID = "BurnInGenomes/BurninGenome_RecessiveLethalEarlyLateSelfing_0.9_10", n.introductions = 2, n.gen.after.fix = 1)
+##intro.poly.run(simID = "BurninGenome_RecessiveLethalEarlyLate1", n.introductions = 100, n.gen.after.fix = 500)

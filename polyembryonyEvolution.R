@@ -54,8 +54,8 @@ getFitness        <- function(tmp.genomes, dev.to.exclude, adult = TRUE){
   ind.genomes                                                         %>%   
     dplyr::summarise(w = prod(w.loc), mono = mean(mono))    
 }
-findMates         <- function(adult.fitness, selfing.rate, n.inds){
-  outbred.parents <- replicate(3,with(adult.fitness, sample(ind, size = n.inds, replace = TRUE, prob = w ))) 
+findMates         <- function(adult.fitness, selfing.rate, n.inds, epsilon = 1e-16){
+  outbred.parents <- replicate(3,with(adult.fitness, sample(ind, size = n.inds, replace = TRUE, prob = (w + epsilon)))) 
   self <- data.frame(matrix(rbinom(n = n.inds * 2, size = 1, prob = selfing.rate),ncol = 2))
   colnames(outbred.parents) <- c("mom","dad1","dad2")
   as_tibble(outbred.parents) %>%
@@ -136,34 +136,11 @@ makeBabies        <- function(tmp.genomes, mates){
 summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
   selected  <- selectedEmbryos %>% mutate(p = paste(mating, embryo)) %>% select(p)%>% pull 
   muts      <- tmp.genomes %>% mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% group_by(id,s,h,timing) %>% tally() %>% ungroup()
-  w.summary <- left_join(
-    embryos                              %>%
-      dplyr::group_by(mating)                                 %>%
-      dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)    %>%
-      getFitness(dev.to.exclude = "L", adult = FALSE)  %>% ungroup() %>%
-      mutate(w_early = w) %>% select(-w)       ,
-    embryos                                            %>%
-      dplyr::group_by(mating)                                 %>%
-      dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)    %>% ungroup() %>%
-      getFitness(dev.to.exclude = "E", adult = FALSE)  %>% ungroup() %>%
-      dplyr::mutate(w_late = w) %>% select(-w), 
-    by = c("mating", "embryo", "mono"))               %>% 
-    left_join(
-      mates %>%
-        dplyr::mutate(e1 = mom == dad1, e2 = mom == dad2)     %>%
-        dplyr::select(- mom , -dad1 , -dad2)                  %>% 
-        gather(key = embryo, value = self, -mating),
-      by = c("mating", "embryo"))                      %>% 
-    left_join(
-      embryos                                              %>%
-        dplyr::group_by(mating, embryo)                     %>%
-        summarise(n_E = sum(timing == "E")  ,
-                  n_B = sum(timing == "B") , 
-                  n_L = sum(timing == "L") ) ,       
-      by = c("mating", "embryo"))         %>%
-    dplyr::mutate(z = paste(mating, embryo), 
-                  chosen = z %in% selected )                  %>%
-    dplyr::select(-z)      
+  w.summary <- tibble(
+    early_w = getFitness(tmp.genomes,dev.to.exclude = "E", adult = TRUE) %>% select(w) %>%pull(),
+    late_w = getFitness(tmp.genomes,dev.to.exclude = "L", adult = TRUE) %>% select(w) %>%pull()) %>%
+    summarise(mean_w_late = mean(late_w), mean_w_early = mean(early_w), 
+              cor_w_early_late = cor(early_w,late_w))
   list(genome = tmp.genomes %>% mutate, 
        summaries = bind_cols(nest(muts),nest(w.summary)) %>% 
          select(muts = data, w = data1))
@@ -241,5 +218,58 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
-#z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = Inf, just.return.genomes = FALSE)
+##z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = Inf, just.return.genomes = FALSE)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+olDsummarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
+  selected  <- selectedEmbryos %>% mutate(p = paste(mating, embryo)) %>% select(p)%>% pull 
+  muts      <- tmp.genomes %>% mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% group_by(id,s,h,timing) %>% tally() %>% ungroup()
+  w.summary <- left_join(
+    embryos                              %>%
+      dplyr::group_by(mating)                                 %>%
+      dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)    %>%
+      getFitness(dev.to.exclude = "L", adult = FALSE)  %>% ungroup() %>%
+      mutate(w_early = w) %>% select(-w)       ,
+    embryos                                            %>%
+      dplyr::group_by(mating)                                 %>%
+      dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)    %>% ungroup() %>%
+      getFitness(dev.to.exclude = "E", adult = FALSE)  %>% ungroup() %>%
+      dplyr::mutate(w_late = w) %>% select(-w), 
+    by = c("mating", "embryo", "mono"))               %>% 
+    left_join(
+      mates %>%
+        dplyr::mutate(e1 = mom == dad1, e2 = mom == dad2)     %>%
+        dplyr::select(- mom , -dad1 , -dad2)                  %>% 
+        gather(key = embryo, value = self, -mating),
+      by = c("mating", "embryo"))                      %>% 
+    left_join(
+      embryos                                              %>%
+        dplyr::group_by(mating, embryo)                     %>%
+        summarise(n_E = sum(timing == "E")  ,
+                  n_B = sum(timing == "B") , 
+                  n_L = sum(timing == "L") ) ,       
+      by = c("mating", "embryo"))         %>%
+    dplyr::mutate(z = paste(mating, embryo), 
+                  chosen = z %in% selected )                  %>%
+    dplyr::select(-z)      
+  list(genome = tmp.genomes %>% mutate, 
+       summaries = bind_cols(nest(muts),nest(w.summary)) %>% 
+         select(muts = data, w = data1))
+}
