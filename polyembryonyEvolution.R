@@ -172,10 +172,13 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   # n.inds           =      1000, 
   # selfing.rate     =         0, # recall selfing = 0 is RANDOM MATING and DOES NOT PRECLUDE SELFING
   # U                =         1, 
-  # fitness.effects  = "uniform", # need to implement more options. currently takes a fixed val or "uniform"
-  # dom.effects      = "uniform", # need to implement more options. currently takes a fixed val or "uniform"
+  # fitness.effects  = "uniform" or -1, mean uniform, any other number is a fixed value  # need to implement more options. currently takes a fixed val or "uniform"
+  # dom.effects      = "uniform",or -1, mean uniform # need to implement more options. currently takes a fixed val or "uniform"
   # n.gen            =      1000, # prob should add an option like "until lost/fixed"
-  # dist.timing      = c(E = 1/3, B = 1/3, L = 1/3),
+  # dist.timing      = c(E = 1/3, B = 1/3, L = 1/3), add what you like! 
+  #                  = numeric options: 1 = c(E = 1/2, B = 0, L = 1/2)
+  #                                     2 = c(E = 1, B = 0, L = 0) 
+  #                                     3 = c(E = 0, B = 0, L = 1)
   # equalizedW       = TRU. Eshould the expected number of embryos produced by mono and poplyembryonic genos be equivalent? Achieved by group sel at level of mom
   # compete          = compete = TRUE , should embryos be chosen at random or with respect to their fitnesses? 
   # introduce.polyem = Inf       , # gen at which we introduce polyembryony allele
@@ -184,6 +187,11 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   # genome.id        = NULL 
   # gen.after.loss   = 1
   # gen.after.fix    = 1
+  if(fitness.effects == -1){fitness.effects <- "uniform"}
+  if(dom.effects == -1){dom.effects <- "uniform"}
+  if(length(dist.timing) == 1){
+    dist.timing <- list(c(E = 1/2, B = 0, L = 1/2), c(E = 1, B = 0, L = 0), c(E = 0, B = 0, L = 1))[[dist.timing]]
+  }
   g             <- 0
   g.after.fix   <- 0 
   g.after.loss  <- 0 
@@ -218,7 +226,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
-##z <-runSim(n.gen = 10, fitness.effects = 1, dom.effects = 0 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = Inf, just.return.genomes = FALSE)
+# z <-runSim(n.gen = 1, fitness.effects = 1, dom.effects = -1 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = Inf, just.return.genomes = FALSE)
 
 
 
