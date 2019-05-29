@@ -83,10 +83,14 @@ favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE, eps
   }
   temp.kidsW <- temp.kidsW                                       %>% 
     dplyr::filter(alive == 1)                                    %>% 
-    dplyr::filter( !( (mono == 1 | !compete) & embryo == "e2") )
+    dplyr::filter( !( mono == 1 & embryo == "e2") )              %>%
+    dplyr::group_by(mating) 
+  if(!compete){
+    temp.kidsW <- temp.kidsW  %>%
+      mutate(w = max(w))
+  }
   temp.kidsW   %>% 
-    dplyr::group_by(mating)                                   %>% # im not sure what this w + epsilon thing does.. but it makes errors go away, and doesnt have any obviously bad concequences
-    sample_n(1,weight = w + epsilon )                         %>% ungroup()  # before it gave error Error in sample.int(n(), check_size(~1, n(), replace = replace), replace = replace,  : too few positive probabilities
+    sample_n(1,weight = w + epsilon )                         %>% ungroup()  
 }
 grabInds          <- function(selectedEmbryos, embryos){
   embryoId  <- dplyr::mutate(selectedEmbryos, winners = paste(mating,embryo)) %>% 
