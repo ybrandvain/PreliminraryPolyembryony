@@ -63,35 +63,44 @@ findMates         <- function(adult.fitness, selfing.rate, n.inds, epsilon = 1e-
            dad2 = ifelse(self$X2 == 1,mom,dad2), # selfing
            mating = 1:n.inds)                    # indexing
 }
-embryoFitness     <- function(tmp.embryos){
+embryoFitness     <- function(tmp.embryos, p.poly.mono.geno){
   tmp.embryos                                                 %>% 
     dplyr::group_by(mating)                                   %>%
-    dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)   %>%       
+    dplyr::mutate(mono_geno    = sum(parent == "mat" & id == 10)/2,
+                  mono_chance  = rbinom(n = 1, size = 1, prob = 1 - p.poly.mono.geno),
+                  mono = mono_geno * mono_chance)   %>%    
     #dplyr::filter( !(mono == 1 & embryo == "e2") )           %>% 
     dplyr::group_by(embryo, add = TRUE)                       %>% ungroup() %>%
     select(- parent)                                          %>%
     getFitness(dev.to.exclude = "L", adult = FALSE)           %>% ungroup() 
 }
-favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE, epsilon = 1e-16){
-  temp.kidsW <- temp.kidsW                                    %>%
-    dplyr::mutate(alive = rbinom(n = n(),size = 1,prob = w ) )
-  if(equalizedW){
-    temp.kidsW <- temp.kidsW   %>% 
-      group_by(mating) %>%
-      mutate(alive = ifelse(mono == 1 , max(alive),  alive))     %>%
-      ungroup()
+
+favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE, epsilon = 1e-16, hard.embryo.selection){
+  if( hard.embryo.selection){
+    temp.kidsW <- temp.kidsW                                    %>%
+      dplyr::mutate(alive = rbinom(n = n(),size = 1,prob = w ))    
+    if(equalizedW &  hard.embryo.selection){
+      temp.kidsW <- temp.kidsW                                   %>%
+        group_by(mating)                                         %>%
+        mutate(alive2 = sum(alive * as.numeric(embryo == "e1"))) %>% ungroup() %>%
+        filter(alive2 == 1) %>% 
+        select(-alive2)
+    }
+    temp.kidsW <- temp.kidsW                                       %>% 
+      dplyr::filter(alive == 1)                                    
   }
-  temp.kidsW <- temp.kidsW                                       %>% 
-    dplyr::filter(alive == 1)                                    %>% 
-    dplyr::filter( !( mono == 1 & embryo == "e2") )              %>%
+  temp.kidsW <- temp.kidsW                          %>% 
+    dplyr::filter( !( mono == 1 & embryo == "e2") ) %>%  
     dplyr::group_by(mating) 
   if(!compete){
-    temp.kidsW <- temp.kidsW  %>%
+    temp.kidsW <- temp.kidsW  %>% 
       mutate(w = max(w))
   }
-  temp.kidsW   %>% 
-    sample_n(1,weight = w + epsilon )                         %>% ungroup()  
+  temp.kidsW <- temp.kidsW   %>%  
+    sample_n(1,weight = w + epsilon )  %>% ungroup()  
+  return(temp.kidsW)
 }
+
 grabInds          <- function(selectedEmbryos, embryos){
   embryoId  <- dplyr::mutate(selectedEmbryos, winners = paste(mating,embryo)) %>% 
     dplyr::select(winners) %>% 
@@ -155,13 +164,13 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
 ##########################
 
 # running one generation
-oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing, equalizedW, compete, just.return.genomes){
+oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing, equalizedW, compete, just.return.genomes,  p.poly.mono.geno,  hard.embryo.selection){
   tmp.genomes     <- addMutations(tmp.genomes, U, fitness.effects, dom.effects, dist.timing, n.inds)
   adult.fitness   <- getFitness(tmp.genomes, dev.to.exclude = "E")                       # Adult Fitness
   mates           <- findMates(adult.fitness, selfing.rate, n.inds = n.inds)             # Mating / Selection
   embryos         <- makeBabies(tmp.genomes, mates)                                      # meiosis is in here too
-  kidsW           <- embryoFitness(embryos)
-  selectedEmbryos <- favoriteChild(kidsW, equalizedW = equalizedW, compete = compete )                                                # pick your child !
+  kidsW           <- embryoFitness(embryos, p.poly.mono.geno)
+  selectedEmbryos <- favoriteChild(kidsW, equalizedW = equalizedW, compete = compete,   hard.embryo.selection =  hard.embryo.selection)                                                # pick your child !
   tmp.genomes     <- grabInds(selectedEmbryos = selectedEmbryos, embryos = embryos) %>%  # extract the genomes of selected embryos from our chosen children
     mutate(ind = as.numeric(factor(rank(ind, ties.method = "min"))))                     # ugh.. this last line is kinda gross. but necessary. in means inds are numbered 1:n... this is importnat for  other bits above
   if(just.return.genomes){return(list(genome = tmp.genomes))}
@@ -170,7 +179,7 @@ oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.ef
 # running for a bunch of generations
 runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "uniform", 
                    dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/2, B = 0, L = 1/2), 
-                   equalizedW = TRUE, compete = TRUE ,
+                   equalizedW = TRUE, compete = TRUE , p.poly.mono.geno = 0,  hard.embryo.selection = TRUE,
                    introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NA,
                    gen.after.loss   = 1,gen.after.fix    = 1, just.return.genomes = FALSE){
   # n.inds           =      1000, 
@@ -191,6 +200,10 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   # genome.id        = NULL 
   # gen.after.loss   = 1
   # gen.after.fix    = 1
+  # p.poly.mono.geno = 0. This is the proportion of "monoembryonic" genotypes that are polyrmbryonic
+                     # recommend a value of approx 0.1 for invasion of / bunn in with soft selection
+                     # note: change the range of s here
+  # hard.embryo.selection = TRUE. is selection on embryos hard or soft? 
   if(fitness.effects == -1){fitness.effects <- "uniform"}
   if(dom.effects == -1){dom.effects <- "uniform"}
   if(length(dist.timing) == 1){
@@ -207,9 +220,9 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
     if(g == introduce.polyem){ans$genome <- introducePoly(ans$genome, polyemb.p0)} # introduce polyembryony allele
     g                 <- g + 1
     ans               <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
-                                dom.effects, dist.timing, equalizedW = equalizedW, compete = compete, just.return.genomes = just.return.genomes)
+                                dom.effects, dist.timing, equalizedW = equalizedW, compete = compete, just.return.genomes = just.return.genomes,  p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection)
     gen.summary[[g]]  <- ans$summaries
-    #print(g)
+    print(g)
     status <- t(ans$genome  %>% filter(timing == "D")  %>% summarise(loss = sum(id == 11) == 0 , fix = sum(id == 10) == 0) )
     g.after.fix    <- g.after.fix   + as.numeric(status["fix",])
     g.after.loss   <- g.after.loss  + as.numeric(status["loss",])
@@ -230,58 +243,15 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
-# z <-runSim(n.gen = 1, fitness.effects = 1, dom.effects = -1 ,  gen.after.loss = 15,  gen.after.fix = 15 , polyemb.p0 = 0, introduce.polyem = Inf, just.return.genomes = FALSE)
 
+#z <-runSim(n.gen = 10, 
+#           fitness.effects = 1, 
+#           dom.effects = -1 ,  
+#           gen.after.loss = 15,  
+#           gen.after.fix = 15 , 
+#           polyemb.p0 = .5, 
+#           introduce.polyem = 0,
+#           just.return.genomes = FALSE,
+#           p.poly.mono.geno = .1,
+#           hard.embryo.selection = FALSE)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-olDsummarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
-  selected  <- selectedEmbryos %>% mutate(p = paste(mating, embryo)) %>% select(p)%>% pull 
-  muts      <- tmp.genomes %>% mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% group_by(id,s,h,timing) %>% tally() %>% ungroup()
-  w.summary <- left_join(
-    embryos                              %>%
-      dplyr::group_by(mating)                                 %>%
-      dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)    %>%
-      getFitness(dev.to.exclude = "L", adult = FALSE)  %>% ungroup() %>%
-      mutate(w_early = w) %>% select(-w)       ,
-    embryos                                            %>%
-      dplyr::group_by(mating)                                 %>%
-      dplyr::mutate(mono = sum(parent == "mat" & id == 10)/2)    %>% ungroup() %>%
-      getFitness(dev.to.exclude = "E", adult = FALSE)  %>% ungroup() %>%
-      dplyr::mutate(w_late = w) %>% select(-w), 
-    by = c("mating", "embryo", "mono"))               %>% 
-    left_join(
-      mates %>%
-        dplyr::mutate(e1 = mom == dad1, e2 = mom == dad2)     %>%
-        dplyr::select(- mom , -dad1 , -dad2)                  %>% 
-        gather(key = embryo, value = self, -mating),
-      by = c("mating", "embryo"))                      %>% 
-    left_join(
-      embryos                                              %>%
-        dplyr::group_by(mating, embryo)                     %>%
-        summarise(n_E = sum(timing == "E")  ,
-                  n_B = sum(timing == "B") , 
-                  n_L = sum(timing == "L") ) ,       
-      by = c("mating", "embryo"))         %>%
-    dplyr::mutate(z = paste(mating, embryo), 
-                  chosen = z %in% selected )                  %>%
-    dplyr::select(-z)      
-  list(genome = tmp.genomes %>% mutate, 
-       summaries = bind_cols(nest(muts),nest(w.summary)) %>% 
-         select(muts = data, w = data1))
-}
