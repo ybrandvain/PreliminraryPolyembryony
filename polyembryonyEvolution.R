@@ -150,15 +150,14 @@ makeBabies        <- function(tmp.genomes, mates){
     unnest(haplo)                                                              # not sure about unnesting here.... 
 }
 summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
-  
   muts <- tmp.genomes %>% 
     mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% 
     group_by(id,s,h,timing) %>% 
     tally() %>% 
     ungroup()
-
+  
   selfing.info <- tibble(   realized_selfing = selectedEmbryos %>% summarise(mean(selfed)) %>% pull(), 
-            primary_selfing = embryos %>% summarise(mean(selfed))%>% pull())
+                            primary_selfing = embryos %>% summarise(mean(selfed))%>% pull())
   pop.stats    <- muts %>% filter(timing == "D") %>%  
     summarise(two_n = sum(n), freq_poly = sum(as.numeric(s == 11) * n/ two_n ))
   # muts / ind by tming 
@@ -166,7 +165,9 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
   mut.per.ind <- muts %>% 
     filter(timing !="D") %>% 
     group_by(timing) %>% 
-    tally(wt = n) %>%
+    tally(wt = n) 
+  names(mut.per.ind )[2] <- "n" 
+  mut.per.ind <- mut.per.ind %>%
     mutate(muts_per_ind = n / pop.stats$two_n)%>% 
     select(-n) %>%
     spread(key = timing, value = muts_per_ind) 
@@ -182,19 +183,23 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
               var_w_early_all  = var(w_early_all), 
               var_w_late_all   = var(w_late_all),
               cor_w_early_late_all = cor(w_early_all, w_late_all))
-    
-
+  
+  
   w.summary <- bind_cols(tibble(
     early_w_selected = getFitness(tmp.genomes,dev.to.exclude = "E", adult = TRUE) %>% select(w) %>%pull(),
     late_w           = getFitness(tmp.genomes,dev.to.exclude = "L", adult = TRUE) %>% select(w) %>%pull()) %>%
-    summarise(mean_w_late_survivors = mean(late_w), 
-              mean_w_early_survivors = mean(early_w_selected), 
-              var_w_late_survivors  = var(late_w), 
-              var_w_early_survivors = var(early_w_selected), 
-              cor_w_early_late_survivors = cor(early_w_selected,late_w)) ,
+      summarise(mean_w_late_survivors = mean(late_w), 
+                mean_w_early_survivors = mean(early_w_selected), 
+                var_w_late_survivors  = var(late_w), 
+                var_w_early_survivors = var(early_w_selected), 
+                cor_w_early_late_survivors = cor(early_w_selected,late_w)) ,
     w.all.stats)
-  list(genome    = tmp.genomes %>% mutate, 
-       summaries = bind_cols(nest(muts, .key = muts), pop.stats,  selfing.info , mut.per.ind, w.summary))
+  list(genome    = tmp.genomes, 
+       summaries = bind_cols(nest(muts, .key = muts), 
+                             pop.stats,  
+                             selfing.info , 
+                             mut.per.ind, 
+                             w.summary))
 }
 
 ##########################
@@ -239,8 +244,8 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   # gen.after.loss   = 1
   # gen.after.fix    = 1
   # p.poly.mono.geno = 0. This is the proportion of "monoembryonic" genotypes that are polyrmbryonic
-                     # recommend a value of approx 0.1 for invasion of / bunn in with soft selection
-                     # note: change the range of s here
+  # recommend a value of approx 0.1 for invasion of / bunn in with soft selection
+  # note: change the range of s here
   # hard.embryo.selection = TRUE. is selection on embryos hard or soft? 
   if(fitness.effects == -1){fitness.effects <- "uniform"}
   if(dom.effects == -1){dom.effects <- "uniform"}
@@ -269,18 +274,15 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   
   fixed <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, TRUE, FALSE))
   gen.after.fixed.or.lost <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, g.after.fix, g.after.loss ))
-
+  
   params <- data.frame(n.inds = n.inds, selfing.rate = selfing.rate, U = U, fitness.effects = fitness.effects,
-    dom.effects = dom.effects, n.gen = n.gen, g = g, 
-    dist.timing = paste(round(dist.timing, digits = 2), collapse = ":"),
-    introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
-    existing.genome = !is.null(genomes), genom.id = genome.id,  last.gen = g, 
-    gen.after.fixed.or.lost  = gen.after.fixed.or.lost, fixed = fixed, equalizedW = equalizedW, compete = compete)
+                       dom.effects = dom.effects, n.gen = n.gen, g = g, 
+                       dist.timing = paste(round(dist.timing, digits = 2), collapse = ":"),
+                       introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
+                       existing.genome = !is.null(genomes), genom.id = genome.id,  last.gen = g, 
+                       gen.after.fixed.or.lost  = gen.after.fixed.or.lost, fixed = fixed, equalizedW = equalizedW, compete = compete)
   
   if(just.return.genomes){  return( list( genome = ans$genome, params = params )) }
   gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
-
-#z <-runSim(n.gen = 10, fitness.effects = 1,   dom.effects = -1 ,   gen.after.loss = 15,     gen.after.fix = 15 ,            polyemb.p0 = 0,  introduce.polyem = 0, just.return.genomes = FALSE,           selfing.rate = .4, p.poly.mono.geno = .1, hard.embryo.selection = FALSE)
-
