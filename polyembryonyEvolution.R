@@ -49,10 +49,10 @@ getFitness        <- function(tmp.genomes, dev.to.exclude, adult = TRUE){
     dplyr::filter(!duplicated(tmp.genomes, fromLast = TRUE) & 
                     !timing %in% dev.to.exclude)                               %>%
     dplyr::mutate(w.loc = 1 - (1-dup) * h * s - dup *s)       
-  if(adult) {ind.genomes  <- ind.genomes %>% mutate(mono = NA)%>% group_by(ind)}
+  if(adult) {ind.genomes  <- ind.genomes %>% mutate(mono = NA, selfed = NA)%>% group_by(ind)}
   if(!adult){ind.genomes  <- ind.genomes %>% group_by(mating, embryo)}
   ind.genomes                                                         %>%   
-    dplyr::summarise(w = prod(w.loc), mono = mean(mono))    
+    dplyr::summarise(w = prod(w.loc), mono = mean(mono), selfed = mean(as.numeric(selfed)))    
 }
 findMates         <- function(adult.fitness, selfing.rate, n.inds, epsilon = 1e-16){
   outbred.parents <- replicate(3,with(adult.fitness, sample(ind, size = n.inds, replace = TRUE, prob = (w + epsilon)))) 
@@ -95,6 +95,7 @@ favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE, eps
   if(!compete){
     temp.kidsW <- temp.kidsW  %>% 
       mutate(w = max(w))
+    # just flip
   }
   temp.kidsW <- temp.kidsW   %>%  
     sample_n(1,weight = w + epsilon )  %>% ungroup()  
@@ -138,25 +139,62 @@ doMeiosis         <- function(tmp.genomes, parents){
     dplyr::arrange(mating) 
 }
 makeBabies        <- function(tmp.genomes, mates){   
+  selfed <- mates%>%mutate(e1 = mom == dad1, e2 = mom ==dad2)%>% select(mating, e1, e2) %>% gather(key = embryo, value = selfed, - mating) 
   bind_cols(
     doMeiosis(tmp.genomes, mates$mom)  %>% select(mating = mating, mat = data),
     doMeiosis(tmp.genomes, mates$dad1) %>% select(e1 = data),
     doMeiosis(tmp.genomes, mates$dad2) %>% select(e2 = data))                       %>%
     gather(key = embryo, value = pat, -mating, - mat)                               %>%
-    gather(key = parent, value = haplo, -mating, - embryo)                          %>% # syngamy
+    full_join(selfed, by = c("mating", "embryo"))                                   %>%
+    gather(key = parent, value = haplo, -mating, - embryo,-selfed)                  %>% # syngamy
     unnest(haplo)                                                              # not sure about unnesting here.... 
 }
 summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
-  selected  <- selectedEmbryos %>% mutate(p = paste(mating, embryo)) %>% select(p)%>% pull 
-  muts      <- tmp.genomes %>% mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% group_by(id,s,h,timing) %>% tally() %>% ungroup()
-  w.summary <- tibble(
-    early_w = getFitness(tmp.genomes,dev.to.exclude = "E", adult = TRUE) %>% select(w) %>%pull(),
-    late_w = getFitness(tmp.genomes,dev.to.exclude = "L", adult = TRUE) %>% select(w) %>%pull()) %>%
-    summarise(mean_w_late = mean(late_w), mean_w_early = mean(early_w), 
-              cor_w_early_late = cor(early_w,late_w))
-  list(genome = tmp.genomes %>% mutate, 
-       summaries = bind_cols(nest(muts),nest(w.summary)) %>% 
-         select(muts = data, w = data1))
+  
+  muts <- tmp.genomes %>% 
+    mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% 
+    group_by(id,s,h,timing) %>% 
+    tally() %>% 
+    ungroup()
+
+  selfing.info <- tibble(   realized_selfing = selectedEmbryos %>% summarise(mean(selfed)) %>% pull(), 
+            primary_selfing = embryos %>% summarise(mean(selfed))%>% pull())
+  pop.stats    <- muts %>% filter(timing == "D") %>%  
+    summarise(two_n = sum(n), freq_poly = sum(as.numeric(s == 11) * n/ two_n ))
+  # muts / ind by tming 
+  # muts in pop 
+  mut.per.ind <- muts %>% 
+    filter(timing !="D") %>% 
+    group_by(timing) %>% 
+    tally(wt = n) %>%
+    mutate(muts_per_ind = n / pop.stats$two_n)%>% 
+    select(-n) %>%
+    spread(key = timing, value = muts_per_ind) 
+  names(mut.per.ind) <- paste(names(mut.per.ind),"perdiploidgenome",sep="_")
+  
+  w.all.stats <- full_join(
+    getFitness(embryos%>% mutate(mono=1), dev.to.exclude = "L",adult = FALSE) %>% 
+      select(mating, embryo, w_early_all = w) %>%ungroup(),
+    getFitness(embryos%>% mutate(mono=1), dev.to.exclude = "E",adult = FALSE) %>% 
+      select(mating, embryo, w_late_all = w)%>%ungroup(), by = c("mating" , "embryo") ) %>% 
+    summarize(mean_w_early_all = mean(w_early_all), 
+              mean_w_late_all  = mean(w_late_all),
+              var_w_early_all  = var(w_early_all), 
+              var_w_late_all   = var(w_late_all),
+              cor_w_early_late_all = cor(w_early_all, w_late_all))
+    
+
+  w.summary <- bind_cols(tibble(
+    early_w_selected = getFitness(tmp.genomes,dev.to.exclude = "E", adult = TRUE) %>% select(w) %>%pull(),
+    late_w           = getFitness(tmp.genomes,dev.to.exclude = "L", adult = TRUE) %>% select(w) %>%pull()) %>%
+    summarise(mean_w_late_survivors = mean(late_w), 
+              mean_w_early_survivors = mean(early_w_selected), 
+              var_w_late_survivors  = var(late_w), 
+              var_w_early_survivors = var(early_w_selected), 
+              cor_w_early_late_survivors = cor(early_w_selected,late_w)) ,
+    w.all.stats)
+  list(genome    = tmp.genomes %>% mutate, 
+       summaries = bind_cols(nest(muts, .key = muts), pop.stats,  selfing.info , mut.per.ind, w.summary))
 }
 
 ##########################
@@ -213,7 +251,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   g.after.fix   <- 0 
   g.after.loss  <- 0 
   #g.since.fixed <- 0
-  ans           <- list(genome = initializeGenomes(n.inds, genomes)) # Make genomes   # will need to keep track of things... but what?
+  ans           <- list(genome = initializeGenomes(n.inds = n.inds, genomes)) # Make genomes   # will need to keep track of things... but what?
   keep.going = TRUE
   gen.summary <- list()  
   while(keep.going){  # or stopping rule tbd   # i realize this should be a for loop, but sense that a while loop will give me flexibility for broader stopping rules
@@ -244,14 +282,5 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
 
-#z <-runSim(n.gen = 10, 
-#           fitness.effects = 1, 
-#           dom.effects = -1 ,  
-#           gen.after.loss = 15,  
-#           gen.after.fix = 15 , 
-#           polyemb.p0 = .5, 
-#           introduce.polyem = 0,
-#           just.return.genomes = FALSE,
-#           p.poly.mono.geno = .1,
-#           hard.embryo.selection = FALSE)
+#z <-runSim(n.gen = 10, fitness.effects = 1,   dom.effects = -1 ,   gen.after.loss = 15,     gen.after.fix = 15 ,            polyemb.p0 = 0,  introduce.polyem = 0, just.return.genomes = FALSE,           selfing.rate = .4, p.poly.mono.geno = .1, hard.embryo.selection = FALSE)
 
