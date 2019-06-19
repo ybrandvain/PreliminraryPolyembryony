@@ -8,6 +8,7 @@ source("processPoly.R")
 intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.track.fix = 10, n.initial.poly.copies = 1,which.model = 1:4){
   load(simID)
   poly.models       <- data.frame( equalizedW = c(T,T,F,F),  compete = c(T,F,T,F))
+  n.inds            <- z$params["n.inds"][1,1]
   selfing.rate      <- z$params["selfing.rate"][1,1]
   polyemb.p0        <- as.numeric(n.initial.poly.copies / (2 * z$params["n.inds"]))
   fitness.effects   <- z$params["fitness.effects"][1,1]
@@ -19,14 +20,15 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   #mygenome          <- z$genome
   intro.results <- lapply(poly.models.list,function(X){
     print(X)
-    poly.models[X,]
+    #poly.models[X,]
     fixed.outcome <- list()
     times.fixed   <- 0
     sim.summary   <- data.frame(matrix(nrow = n.introductions, ncol = length(z$params)))
     colnames(sim.summary) <- colnames(z$params)
     for(i in 1:n.introductions) { # should be n.introductions
       print(i)
-      this.sim <- runSim(n.gen   = 0, 
+      this.sim <- runSim(n.inds              = n.inds,  
+                         n.gen               = 0, 
                          selfing.rate        = selfing.rate, 
                          fitness.effects     = fitness.effects, 
                          dom.effects         = dom.effects ,  
