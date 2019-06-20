@@ -171,8 +171,9 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
     mutate(muts_per_ind = n / pop.stats$two_n)%>% 
     select(-n) %>%
     spread(key = timing, value = muts_per_ind) 
+  if(nrow(mut.per.ind) >0){
   names(mut.per.ind) <- paste(names(mut.per.ind),"perdiploidgenome",sep="_")
-  
+  }
   w.all.stats <- full_join(
     getFitness(embryos%>% mutate(mono=1), dev.to.exclude = "L",adult = FALSE) %>% 
       select(mating, embryo, w_early_all = w) %>%ungroup(),
@@ -260,12 +261,12 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   keep.going = TRUE
   gen.summary <- list()  
   while(keep.going){  # or stopping rule tbd   # i realize this should be a for loop, but sense that a while loop will give me flexibility for broader stopping rules
+    if((g %% 100) == 0){print(sprintf("gen %s, genomeID %s",g,genome.id))}
     if(g == introduce.polyem){ans$genome <- introducePoly(ans$genome, polyemb.p0)} # introduce polyembryony allele
     g                 <- g + 1
     ans               <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
                                 dom.effects, dist.timing, equalizedW = equalizedW, compete = compete, just.return.genomes = just.return.genomes,  p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection)
     gen.summary[[g]]  <- ans$summaries
-    print(g)
     status <- t(ans$genome  %>% filter(timing == "D")  %>% summarise(loss = sum(id == 11) == 0 , fix = sum(id == 10) == 0) )
     g.after.fix    <- g.after.fix   + as.numeric(status["fix",])
     g.after.loss   <- g.after.loss  + as.numeric(status["loss",])
@@ -273,16 +274,25 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   }
   
   fixed <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, TRUE, FALSE))
+  lost <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, TRUE, FALSE))
   gen.after.fixed.or.lost <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, g.after.fix, g.after.loss ))
-  
+  final.status <- ifelse(polyemb.p0 == 0 | (introduce.polyem > n.gen), "burnin", ifelse(status["loss",1], "loss", ifelse(status["fix",1], "fix")))
+  final.mean_w_early_all <- round(ans$summaries$mean_w_early_all,digits = 3)
+  final.mean_w_late_all <- round(ans$summaries$mean_w_late_all,digits = 3)
+  final.n <- ans$summaries$two_n/2
+  final.L.perdiploidgenome <- ifelse("L_perdiploidgenome" %in% names(ans$summaries),round(ans$summaries$L_perdiploidgenome,digits = 3),0)
+  final.E.perdiploidgenome <- ifelse("E_perdiploidgenome" %in% names(ans$summaries),round(ans$summaries$E_perdiploidgenome,digits = 3),0)
+  print(sprintf("stoppedGen %s, status %s, finalMeanWlateAll %s, finalMeanWearlyAll %s, Lperdiploidgenome %s, Eperdiploidgenome %s, genomeID %s", g, final.status, final.mean_w_late_all, final.mean_w_early_all, final.L.perdiploidgenome, final.E.perdiploidgenome, genome.id))
   params <- data.frame(n.inds = n.inds, selfing.rate = selfing.rate, U = U, fitness.effects = fitness.effects,
                        dom.effects = dom.effects, n.gen = n.gen, g = g, 
                        dist.timing = paste(round(dist.timing, digits = 2), collapse = ":"),
                        introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
                        existing.genome = !is.null(genomes), genom.id = genome.id,  last.gen = g, 
                        gen.after.fixed.or.lost  = gen.after.fixed.or.lost, fixed = fixed, equalizedW = equalizedW, compete = compete)
-  
   if(just.return.genomes){  return( list( genome = ans$genome, params = params )) }
   gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
+
+
+
