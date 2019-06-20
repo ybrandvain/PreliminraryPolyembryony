@@ -19,7 +19,6 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   names(dist.timing)<- c("E","B","L")
   #mygenome          <- z$genome
   intro.results <- lapply(poly.models.list,function(X){
-    print(X)
     #poly.models[X,]
     fixed.outcome <- list()
     times.fixed   <- 0
@@ -47,6 +46,7 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
         times.fixed <- times.fixed + 1
         fixed.outcome[[times.fixed]] <- this.sim
       }
+      print(sprintf("SCALEUPDATE %s, completedIntroduction %s, of %s, timesfixed %s, model %s, genomeID %s", paste(rbind(strsplit( date(), " ",)[[1]][2:4]),collapse="_"),  i, n.introductions, times.fixed ,names(poly.models.list)[X], simID ))
     }
     return(list(sim.summary = sim.summary,fixed.outcome = fixed.outcome))
   })
