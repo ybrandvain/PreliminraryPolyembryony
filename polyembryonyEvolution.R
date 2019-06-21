@@ -38,8 +38,8 @@ addMutations      <- function(tmp.genomes, U, fitness.effects, dom.effects, dist
                                    size    = n.muts,                         # number of muts defined
                                    replace = TRUE,                           # obviously
                                    prob    = dist.timing),                   # right now all muts equi-probable. can change this
-                   id = getVal(thing = "uniform", num = n.muts, this.min = 4/n.inds),
-                   s  = getVal(thing = fitness.effects, num = n.muts, this.min = 4/n.inds, prelim.vals = id),
+                   id = getVal(thing = "uniform", num = n.muts, this.min = 20/n.inds),
+                   s  = getVal(thing = fitness.effects, num = n.muts, this.min = 20/n.inds, prelim.vals = id),
                    h  = getVal(thing = dom.effects, num = n.muts))  %>%    # s from uniform as described in ms. can change
               dplyr::mutate(s = ifelse(timing == "B", (1-sqrt(1-s)),s)))   
 }
