@@ -41,10 +41,11 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
                          genome.id           = simID,
                          just.return.genomes = times.fixed >= n.times.to.track.fix,
                          dist.timing         = dist.timing)
+      print(":)")
       sim.summary[i,] <- this.sim$params
       if(this.sim$params[1,"fixed"]){     
         times.fixed <- times.fixed + 1
-        fixed.outcome[[times.fixed]] <- this.sim
+        if( times.fixed <= n.times.to.track.fix){fixed.outcome[[times.fixed]] <- this.sim}
       }
       print(sprintf("SCALEUPDATE %s, completedIntroduction %s, of %s, timesfixed %s, model %s, genomeID %s", paste(rbind(strsplit( date(), " ",)[[1]][2:4]),collapse="_"),  i, n.introductions, times.fixed ,names(poly.models.list)[X], simID ))
     }
@@ -57,10 +58,10 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
                 as_tibble(nest(TMP$genome)),
                 as_tibble(TMP$params))%>% 
         rename(gen.summary = data , genome = data1)
-    }))
-  }))
+    })
+  )}))
   return(list(sim.summary = sim.summary, fixed.details = fixed.details))
 }
 
-#a <-intro.poly.run(simID = "BurnInGenomes/BurninGenome_RecessiveLethalEarlyLateSelfing_0.9_10", n.introductions = 2, n.gen.after.fix = 1)
+#a <-intro.poly.run(simID = "BurnInN2000/BurninGenome_w0.9_h0.02_U0.5_t1_S0.2_i1", n.introductions = 10, n.gen.after.fix = 1, which.model = 3,n.times.to.track.fix = 2,n.initial.poly.copies = 4000)
 ##intro.poly.run(simID = "BurninGenome_RecessiveLethalEarlyLate1", n.introductions = 100, n.gen.after.fix = 500)

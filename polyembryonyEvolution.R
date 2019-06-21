@@ -277,6 +277,11 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   lost <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, TRUE, FALSE))
   gen.after.fixed.or.lost <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, g.after.fix, g.after.loss ))
   final.status <- ifelse(polyemb.p0 == 0 | (introduce.polyem > n.gen), "burnin", ifelse(status["loss",1], "loss", ifelse(status["fix",1], "fix")))
+  
+  ans$summaries <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
+                          dom.effects, dist.timing, equalizedW = equalizedW, 
+                          compete = compete, just.return.genomes = FALSE,  
+                          p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection)$summaries 
   final.mean_w_early_all <- round(ans$summaries$mean_w_early_all,digits = 3)
   final.mean_w_late_all <- round(ans$summaries$mean_w_late_all,digits = 3)
   final.n <- ans$summaries$two_n/2
@@ -289,8 +294,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
                        introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
                        existing.genome = !is.null(genomes), genom.id = genome.id,  last.gen = g, 
                        gen.after.fixed.or.lost  = gen.after.fixed.or.lost, fixed = fixed, equalizedW = equalizedW, compete = compete)
-  if(just.return.genomes){  return( list( genome = ans$genome, params = params )) }
-  gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)
+  if(length(gen.summary) >0){gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)}
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
 
