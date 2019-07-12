@@ -63,7 +63,7 @@ findMates         <- function(adult.fitness, selfing.rate, n.inds, epsilon = 1e-
            dad2 = ifelse(self$X2 == 1,mom,dad2), # selfing
            mating = 1:n.inds)                    # indexing
 }
-embryoFitness     <- function(tmp.embryos, p.poly.mono.geno){
+embryoFitness     <- function(tmp.embryos, p.poly.mono.geno, d2exclude = "L"){
   tmp.embryos                                                 %>% 
     dplyr::group_by(mating)                                   %>%
     dplyr::mutate(mono_geno    = sum(parent == "mat" & id == 10)/2,
@@ -72,7 +72,7 @@ embryoFitness     <- function(tmp.embryos, p.poly.mono.geno){
     #dplyr::filter( !(mono == 1 & embryo == "e2") )           %>% 
     dplyr::group_by(embryo, add = TRUE)                       %>% ungroup() %>%
     select(- parent)                                          %>%
-    getFitness(dev.to.exclude = "L", adult = FALSE)           %>% ungroup() 
+    getFitness(dev.to.exclude = d2exclude, adult = FALSE)           %>% ungroup() 
 }
 
 favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE, epsilon = 1e-16, hard.embryo.selection){
@@ -112,7 +112,8 @@ grabInds          <- function(selectedEmbryos, embryos){
     dplyr::select(ind = mating, id = id, s = s, h = h, timing = timing) 
 }
 doMeiosis         <- function(tmp.genomes, parents){
-  to.meios <- nest(tmp.genomes, -ind)  %>% 
+  to.meios <- nest(tmp.genomes, -ind)         %>% 
+    arrange(ind)                              %>%  # major bug fix
     dplyr::slice(parents)                     %>% 
     dplyr::mutate(mating = 1:length(parents)) %>%
     dplyr::select(mating, data)               %>%
@@ -155,7 +156,6 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
     group_by(id,s,h,timing) %>% 
     tally() %>% 
     ungroup()
-  
   selfing.info <- tibble(   realized_selfing = selectedEmbryos %>% summarise(mean(selfed)) %>% pull(), 
                             primary_selfing = embryos %>% summarise(mean(selfed))%>% pull())
   pop.stats    <- muts %>% filter(timing == "D") %>%  
@@ -175,9 +175,9 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
   names(mut.per.ind) <- paste(names(mut.per.ind),"perdiploidgenome",sep="_")
   }
   w.all.stats <- full_join(
-    getFitness(embryos%>% mutate(mono=1), dev.to.exclude = "L",adult = FALSE) %>% 
+    embryoFitness(embryos,p.poly.mono.geno=0,d2exclude = "L") %>% 
       select(mating, embryo, w_early_all = w) %>%ungroup(),
-    getFitness(embryos%>% mutate(mono=1), dev.to.exclude = "E",adult = FALSE) %>% 
+    embryoFitness(embryos,p.poly.mono.geno=0,d2exclude = "E") %>% 
       select(mating, embryo, w_late_all = w)%>%ungroup(), by = c("mating" , "embryo") ) %>% 
     summarize(mean_w_early_all = mean(w_early_all), 
               mean_w_late_all  = mean(w_late_all),
@@ -187,8 +187,8 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
   
   
   w.summary <- bind_cols(tibble(
-    early_w_selected = getFitness(tmp.genomes,dev.to.exclude = "E", adult = TRUE) %>% select(w) %>%pull(),
-    late_w           = getFitness(tmp.genomes,dev.to.exclude = "L", adult = TRUE) %>% select(w) %>%pull()) %>%
+    early_w_selected = getFitness(tmp.genomes,dev.to.exclude = "L", adult = TRUE) %>% select(w) %>%pull(),
+    late_w           = getFitness(tmp.genomes,dev.to.exclude = "E", adult = TRUE) %>% select(w) %>%pull()) %>%
       summarise(mean_w_late_survivors = mean(late_w), 
                 mean_w_early_survivors = mean(early_w_selected), 
                 var_w_late_survivors  = var(late_w), 
