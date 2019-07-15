@@ -161,18 +161,17 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
   pop.stats    <- muts %>% filter(timing == "D") %>%  
     summarise(two_n = sum(n), freq_poly = sum(as.numeric(s == 11) * n/ two_n ))
   # muts / ind by tming 
-  # muts in pop 
   mut.per.ind <- muts %>% 
-    filter(timing !="D") %>% 
-    group_by(timing) %>% 
-    tally(wt = n) 
+        filter(timing !="D") %>% 
+        group_by(timing) %>% 
+        summarise(wt = sum(n) )
   names(mut.per.ind )[2] <- "n" 
   mut.per.ind <- mut.per.ind %>%
     mutate(muts_per_ind = n / pop.stats$two_n)%>% 
     select(-n) %>%
     spread(key = timing, value = muts_per_ind) 
   if(nrow(mut.per.ind) >0){
-  names(mut.per.ind) <- paste(names(mut.per.ind),"perdiploidgenome",sep="_")
+  names(mut.per.ind) <- paste(names(mut.per.ind),"perhaploidgenome",sep="_")
   }
   w.all.stats <- full_join(
     embryoFitness(embryos,p.poly.mono.geno=0,d2exclude = "L") %>% 
@@ -285,9 +284,9 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   final.mean_w_early_all <- round(ans$summaries$mean_w_early_all,digits = 3)
   final.mean_w_late_all <- round(ans$summaries$mean_w_late_all,digits = 3)
   final.n <- ans$summaries$two_n/2
-  final.L.perdiploidgenome <- ifelse("L_perdiploidgenome" %in% names(ans$summaries),round(ans$summaries$L_perdiploidgenome,digits = 3),0)
-  final.E.perdiploidgenome <- ifelse("E_perdiploidgenome" %in% names(ans$summaries),round(ans$summaries$E_perdiploidgenome,digits = 3),0)
-  print(sprintf("SIMULATION done, stoppedGen %s, status %s, finalMeanWlateAll %s, finalMeanWearlyAll %s, Lperdiploidgenome %s, Eperdiploidgenome %s, genomeID %s", g, final.status, final.mean_w_late_all, final.mean_w_early_all, final.L.perdiploidgenome, final.E.perdiploidgenome, genome.id))
+  final.L.perhaploidgenome <- ifelse("L_perhaploidgenome" %in% names(ans$summaries),round(ans$summaries$L_perhaploidgenome,digits = 3),0)
+  final.E.perhaploidgenome <- ifelse("E_perhaploidgenome" %in% names(ans$summaries),round(ans$summaries$E_perhaploidgenome,digits = 3),0)
+  print(sprintf("SIMULATION done, stoppedGen %s, status %s, finalMeanWlateAll %s, finalMeanWearlyAll %s, Lperdiploidgenome %s, Eperdiploidgenome %s, genomeID %s", g, final.status, final.mean_w_late_all, final.mean_w_early_all, final.L.perhaploidgenome, final.E.perhaploidgenome, genome.id))
   params <- data.frame(n.inds = n.inds, selfing.rate = selfing.rate, U = U, fitness.effects = fitness.effects,
                        dom.effects = dom.effects, n.gen = n.gen, g = g, 
                        dist.timing = paste(round(dist.timing, digits = 2), collapse = ":"),
@@ -300,3 +299,6 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
 
 
 
+#runSim()
+
+runSim(n.gen = 20, U=as.numeric(1), selfing.rate=as.numeric(0), fitness.effects = as.numeric(1), dom.effects = as.numeric(0), introduce.polyem = Inf, dist.timing = as.numeric(1), just.return.genomes = FALSE)
