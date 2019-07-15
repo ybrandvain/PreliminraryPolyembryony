@@ -164,7 +164,7 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
   mut.per.ind <- muts %>% 
         filter(timing !="D") %>% 
         group_by(timing) %>% 
-        summarise(wt = sum(n) )
+        tally(wt = n )
   names(mut.per.ind )[2] <- "n" 
   mut.per.ind <- mut.per.ind %>%
     mutate(muts_per_ind = n / pop.stats$two_n)%>% 
