@@ -299,6 +299,3 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
 
 
 
-#runSim()
-
-runSim(n.gen = 20, U=as.numeric(1), selfing.rate=as.numeric(0), fitness.effects = as.numeric(1), dom.effects = as.numeric(0), introduce.polyem = Inf, dist.timing = as.numeric(1), just.return.genomes = FALSE)
