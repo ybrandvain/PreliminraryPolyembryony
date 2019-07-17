@@ -13,6 +13,7 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   polyemb.p0        <- as.numeric(n.initial.poly.copies / (2 * z$params["n.inds"]))
   fitness.effects   <- z$params["fitness.effects"][1,1]
   dom.effects       <- z$params["dom.effects"][1,1]
+  U       <- z$params["U"][1,1]
   poly.models.list  <- list(equalizedW_compete = 1, equalizedW_nocompete = 2, nonequalizedW_compete = 3,nonequalizedW_nocompete = 4)
   poly.models.list  <- poly.models.list[which.model] 
   dist.timing       <- as.numeric(strsplit(as.character(z$params["dist.timing"][1,1]),":")[[1]])
@@ -28,7 +29,8 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
       print(i)
       this.sim <- runSim(n.inds              = n.inds,  
                          n.gen               = 0, 
-                         selfing.rate        = selfing.rate, 
+                         selfing.rate        = selfing.rate,
+                         U        = U,
                          fitness.effects     = fitness.effects, 
                          dom.effects         = dom.effects ,  
                          gen.after.loss      = 1,  
