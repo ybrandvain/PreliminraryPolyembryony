@@ -194,12 +194,23 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
                 var_w_early_survivors = var(early_w_selected), 
                 cor_w_early_late_survivors = cor(early_w_selected,late_w)) ,
     w.all.stats)
+  
+  w_early_by_self_mono_survive <- selectedEmbryos %>% 
+    group_by(mono,selfed)%>% 
+    summarize(w = mean(w)) %>% 
+    ungroup() %>% 
+    summarize(w_early_mono_selfed_survive = sum(w * as.numeric(mono==1 & selfed == 1)) /sum(as.numeric(mono==1 & selfed == 1)),
+              w_early_mono_out_survive    = sum(w * as.numeric(mono==1 & selfed == 0)) /sum(as.numeric(mono==1 & selfed == 0)),
+              w_early_poly_selfed_survive = sum(w * as.numeric(mono==0 & selfed == 1)) /sum(as.numeric(mono==0 & selfed == 1)),
+              w_early_poly_out_survive    = sum(w * as.numeric(mono==0 & selfed == 0)) /sum(as.numeric(mono==0 & selfed == 0)))
+  
   list(genome    = tmp.genomes, 
        summaries = bind_cols(nest(muts, .key = muts), 
                              pop.stats,  
                              selfing.info , 
                              mut.per.ind, 
-                             w.summary))
+                             w.summary,
+                             w_early_by_self_mono_survive ))
 }
 
 ##########################
@@ -275,7 +286,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   fixed <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, TRUE, FALSE))
   lost <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, TRUE, FALSE))
   gen.after.fixed.or.lost <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, g.after.fix, g.after.loss ))
-  final.status <- ifelse(polyemb.p0 == 0 | (introduce.polyem > n.gen), "burnin", ifelse(status["loss",1], "loss", ifelse(status["fix",1], "fix")))
+  final.status <- ifelse(polyemb.p0 == 0 | (introduce.polyem > n.gen), "burnin", ifelse(status["loss",1], "loss", ifelse(status["fix",1], "fix","stopped")))
   
   ans$summaries <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
                           dom.effects, dist.timing, equalizedW = equalizedW, 
@@ -296,6 +307,5 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   if(length(gen.summary) >0){gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)}
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
-
 
 
