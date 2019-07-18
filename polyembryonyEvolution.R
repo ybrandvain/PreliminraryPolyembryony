@@ -158,6 +158,11 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
     ungroup()
   selfing.info <- tibble(   realized_selfing = selectedEmbryos %>% summarise(mean(selfed)) %>% pull(), 
                             primary_selfing = embryos %>% summarise(mean(selfed))%>% pull())
+  realized_selfing_by_mono <- selectedEmbryos  %>% 
+    group_by(mono) %>% 
+    summarize(reself = mean(selfed)) %>% 
+    summarize(mono_realized_selfing =sum(as.numeric(mono == 1) *reself ) / sum(as.numeric(mono == 1)),
+              poly_realized_selfing =sum(as.numeric(mono == 0) *reself )/ sum(as.numeric(mono == 0)))
   pop.stats    <- muts %>% filter(timing == "D") %>%  
     summarise(two_n = sum(n), freq_poly = sum(as.numeric(s == 11) * n/ two_n ))
   # muts / ind by tming 
@@ -208,6 +213,7 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
        summaries = bind_cols(nest(muts, .key = muts), 
                              pop.stats,  
                              selfing.info , 
+                             realized_selfing_by_mono,
                              mut.per.ind, 
                              w.summary,
                              w_early_by_self_mono_survive ))
@@ -307,5 +313,4 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   if(length(gen.summary) >0){gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)}
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
-
 
