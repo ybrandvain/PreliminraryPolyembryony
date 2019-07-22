@@ -304,13 +304,17 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   final.L.perhaploidgenome <- ifelse("L_perhaploidgenome" %in% names(ans$summaries),round(ans$summaries$L_perhaploidgenome,digits = 3),0)
   final.E.perhaploidgenome <- ifelse("E_perhaploidgenome" %in% names(ans$summaries),round(ans$summaries$E_perhaploidgenome,digits = 3),0)
   print(sprintf("SIMULATION done, stoppedGen %s, status %s, finalMeanWlateAll %s, finalMeanWearlyAll %s, Lperdiploidgenome %s, Eperdiploidgenome %s, genomeID %s", g, final.status, final.mean_w_late_all, final.mean_w_early_all, final.L.perhaploidgenome, final.E.perhaploidgenome, genome.id))
+ # recover()
   params <- data.frame(n.inds = n.inds, selfing.rate = selfing.rate, U = U, fitness.effects = fitness.effects,
                        dom.effects = dom.effects, n.gen = n.gen, g = g, 
                        dist.timing = paste(round(dist.timing, digits = 2), collapse = ":"),
                        introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
                        existing.genome = !is.null(genomes), genom.id = genome.id,  last.gen = g, 
-                       gen.after.fixed.or.lost  = gen.after.fixed.or.lost, fixed = fixed, equalizedW = equalizedW, compete = compete)
+                       gen.after.fixed.or.lost  = gen.after.fixed.or.lost, fixed = fixed, equalizedW = equalizedW, 
+                       compete = compete,hard.embryo.selection = hard.embryo.selection, p.poly.mono.geno)
   if(length(gen.summary) >0){gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)}
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
+
+
 

@@ -18,7 +18,8 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   poly.models.list  <- poly.models.list[which.model] 
   dist.timing       <- as.numeric(strsplit(as.character(z$params["dist.timing"][1,1]),":")[[1]])
   names(dist.timing)<- c("E","B","L")
-  #mygenome          <- z$genome
+  hard.embryo.selection <- ifelse(length(which(names(z$params) == "hard.embryo.selection")) == 0, TRUE, z$params["hard.embryo.selection"][1,1])
+  p.poly.mono.geno      <- ifelse(length(which(names(z$params) == "p.poly.mono.geno")) == 0, 0, z$params["p.poly.mono.geno"][1,1])
   intro.results <- lapply(poly.models.list,function(X){
     #poly.models[X,]
     fixed.outcome <- list()
@@ -27,22 +28,24 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
     colnames(sim.summary) <- colnames(z$params)
     for(i in 1:n.introductions) { # should be n.introductions
       print(i)
-      this.sim <- runSim(n.inds              = n.inds,  
-                         n.gen               = 0, 
-                         selfing.rate        = selfing.rate,
-                         U        = U,
-                         fitness.effects     = fitness.effects, 
-                         dom.effects         = dom.effects ,  
-                         gen.after.loss      = 1,  
-                         gen.after.fix       = ifelse(times.fixed < n.times.to.track.fix, n.gen.after.fix,1), 
-                         polyemb.p0          = polyemb.p0, 
-                         introduce.polyem    = 0,
-                         equalizedW          = poly.models[X,"equalizedW"] ,
-                         compete             = poly.models[X,"compete"],
-                         genomes             = z$genome,
-                         genome.id           = simID,
-                         just.return.genomes = times.fixed >= n.times.to.track.fix,
-                         dist.timing         = dist.timing)
+      this.sim <- runSim(n.inds                = n.inds,  
+                         n.gen                 = 0, 
+                         selfing.rate          = selfing.rate,
+                         U                     = U,
+                         fitness.effects       = fitness.effects, 
+                         dom.effects           = dom.effects ,  
+                         gen.after.loss        = 1,  
+                         gen.after.fix         = ifelse(times.fixed < n.times.to.track.fix, n.gen.after.fix,1), 
+                         polyemb.p0            = polyemb.p0, 
+                         introduce.polyem      = 0,
+                         equalizedW            = poly.models[X,"equalizedW"] ,
+                         compete               = poly.models[X,"compete"],
+                         genomes               = z$genome,
+                         genome.id             = simID,
+                         hard.embryo.selection = hard.embryo.selection,
+                         p.poly.mono.geno      = p.poly.mono.geno,
+                         just.return.genomes   = times.fixed >= n.times.to.track.fix,
+                         dist.timing           = dist.timing)
       print(":)")
       sim.summary[i,] <- this.sim$params
       if(this.sim$params[1,"fixed"]){     
@@ -65,5 +68,3 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   return(list(sim.summary = sim.summary, fixed.details = fixed.details))
 }
 
-#a <-intro.poly.run(simID = "BurnInN2000/BurninGenome_w0.9_h0.02_U0.5_t1_S0.2_i1", n.introductions = 10, n.gen.after.fix = 1, which.model = 3,n.times.to.track.fix = 2,n.initial.poly.copies = 4000)
-##intro.poly.run(simID = "BurninGenome_RecessiveLethalEarlyLate1", n.introductions = 100, n.gen.after.fix = 500)
