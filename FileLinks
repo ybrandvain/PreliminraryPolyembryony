@@ -2,4 +2,4 @@ w	h	U	dist.time	BurnIn  Model	FileLink
 Uni	Uni	0.5	0.5:0:0.5	TRUE  Default	https://object.pouta.csc.fi/swift/v1/AUTH_158c796dd89f4d21aa7d8f3b92fd000d/BurnIns/BurnIn-1_-1_0.5_1.tar.bz2
 Uni	Uni	0.5	0.5:0:0.5	FALSE 3	https://object.pouta.csc.fi/swift/v1/AUTH_158c796dd89f4d21aa7d8f3b92fd000d/deploy_results/w-1_h-1_U0.5_t1_PolyDeployResultModel_3.tar.bz2
 1	0	0.5	0.5:0:0.5	FALSE 3	https://object.pouta.csc.fi/swift/v1/AUTH_158c796dd89f4d21aa7d8f3b92fd000d/deploy_results/w1_h0_U0.5_t1_PolyDeployResultModel_3.tar.bz2
-All     All     0.5     0.5:0:0.5     FALSE   3  https://object.pouta.csc.fi/swift/v1/AUTH_158c796dd89f4d21aa7d8f3b92fd000d/deploy_results/PolyDeploy.tar.gz
+All     All     0.5     0.5:0:0.5      FALSE   3  https://object.pouta.csc.fi/swift/v1/AUTH_158c796dd89f4d21aa7d8f3b92fd000d/deploy_results/PolyDeploy.tar.gz
