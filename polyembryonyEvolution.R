@@ -23,7 +23,7 @@ introducePoly     <- function(genomes, polyemb.p0){
                                           prob = c(1 - polyemb.p0, polyemb.p0)), #10 means monoembryony. 11 means poly
                                  !id %in% 10:11 ~ id))
 }
-addMutations      <- function(tmp.genomes, U, fitness.effects, dom.effects, dist.timing, n.inds){
+addMutations      <- function(tmp.genomes, U, fitness.effects, dom.effects, dist.timing, n.inds, smallest.s){
   getVal <- function(thing, num, this.min = 0, this.max = 1, prelim.vals = NULL){
     if(is.null(prelim.vals)){ prelim.vals <- runif(n = num, min = this.min, this.max) }
     if(thing == "uniform") {   return(prelim.vals)  }
@@ -38,8 +38,8 @@ addMutations      <- function(tmp.genomes, U, fitness.effects, dom.effects, dist
                                    size    = n.muts,                         # number of muts defined
                                    replace = TRUE,                           # obviously
                                    prob    = dist.timing),                   # right now all muts equi-probable. can change this
-                   id = getVal(thing = "uniform", num = n.muts, this.min = 20/n.inds),
-                   s  = getVal(thing = fitness.effects, num = n.muts, this.min = 20/n.inds, prelim.vals = id),
+                   id = getVal(thing = "uniform", num = n.muts, this.min = smallest.s/n.inds),
+                   s  = getVal(thing = fitness.effects, num = n.muts, this.min = smallest.s/n.inds, prelim.vals = id),
                    h  = getVal(thing = dom.effects, num = n.muts))  %>%    # s from uniform as described in ms. can change
               dplyr::mutate(s = ifelse(timing == "B", (1-sqrt(1-s)),s)))   
 }
@@ -224,8 +224,8 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
 ##########################
 
 # running one generation
-oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing, equalizedW, compete, just.return.genomes,  p.poly.mono.geno,  hard.embryo.selection){
-  tmp.genomes     <- addMutations(tmp.genomes, U, fitness.effects, dom.effects, dist.timing, n.inds)
+oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing, equalizedW, compete, just.return.genomes,  p.poly.mono.geno,  hard.embryo.selection, smallest.s){
+  tmp.genomes     <- addMutations(tmp.genomes, U, fitness.effects, dom.effects, dist.timing, n.inds, smallest.s)
   adult.fitness   <- getFitness(tmp.genomes, dev.to.exclude = "E")                       # Adult Fitness
   mates           <- findMates(adult.fitness, selfing.rate, n.inds = n.inds)             # Mating / Selection
   embryos         <- makeBabies(tmp.genomes, mates)                                      # meiosis is in here too
@@ -241,7 +241,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
                    dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/2, B = 0, L = 1/2), 
                    equalizedW = TRUE, compete = TRUE , p.poly.mono.geno = 0,  hard.embryo.selection = TRUE,
                    introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NA,
-                   gen.after.loss   = 1,gen.after.fix    = 1, just.return.genomes = FALSE){
+                   gen.after.loss   = 1,gen.after.fix    = 1, just.return.genomes = FALSE, smallest.s=20){
   # n.inds           =      1000, 
   # selfing.rate     =         0, # recall selfing = 0 is RANDOM MATING and DOES NOT PRECLUDE SELFING
   # U                =         1, 
@@ -264,6 +264,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   # recommend a value of approx 0.1 for invasion of / bunn in with soft selection
   # note: change the range of s here
   # hard.embryo.selection = TRUE. is selection on embryos hard or soft? 
+  # smallest.s the lowest selection coeficeint times N (so min.fitness effect is  smallest.s/n)
   if(fitness.effects == -1){fitness.effects <- "uniform"}
   if(dom.effects == -1){dom.effects <- "uniform"}
   if(length(dist.timing) == 1){
@@ -281,7 +282,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
     if(g == introduce.polyem){ans$genome <- introducePoly(ans$genome, polyemb.p0)} # introduce polyembryony allele
     g                 <- g + 1
     ans               <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
-                                dom.effects, dist.timing, equalizedW = equalizedW, compete = compete, just.return.genomes = just.return.genomes,  p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection)
+                                dom.effects, dist.timing, equalizedW = equalizedW, compete = compete, just.return.genomes = just.return.genomes,  p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection, smallest.s = smallest.s)
     gen.summary[[g]]  <- ans$summaries
     status <- t(ans$genome  %>% filter(timing == "D")  %>% summarise(loss = sum(id == 11) == 0 , fix = sum(id == 10) == 0) )
     g.after.fix    <- g.after.fix   + as.numeric(status["fix",])
@@ -297,7 +298,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   ans$summaries <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
                           dom.effects, dist.timing, equalizedW = equalizedW, 
                           compete = compete, just.return.genomes = FALSE,  
-                          p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection)$summaries 
+                          p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection, smallest.s = mallest.s)$summaries 
   final.mean_w_early_all <- round(ans$summaries$mean_w_early_all,digits = 3)
   final.mean_w_late_all <- round(ans$summaries$mean_w_late_all,digits = 3)
   final.n <- ans$summaries$two_n/2
@@ -311,7 +312,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
                        introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
                        existing.genome = !is.null(genomes), genom.id = genome.id,  last.gen = g, 
                        gen.after.fixed.or.lost  = gen.after.fixed.or.lost, fixed = fixed, equalizedW = equalizedW, 
-                       compete = compete,hard.embryo.selection = hard.embryo.selection, p.poly.mono.geno)
+                       compete = compete,hard.embryo.selection = hard.embryo.selection, p.poly.mono.geno, smallest.s)
   if(length(gen.summary) >0){gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)}
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
