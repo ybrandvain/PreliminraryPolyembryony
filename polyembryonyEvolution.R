@@ -298,7 +298,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   ans$summaries <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
                           dom.effects, dist.timing, equalizedW = equalizedW, 
                           compete = compete, just.return.genomes = FALSE,  
-                          p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection, smallest.s = mallest.s)$summaries 
+                          p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection, smallest.s = smallest.s)$summaries 
   final.mean_w_early_all <- round(ans$summaries$mean_w_early_all,digits = 3)
   final.mean_w_late_all <- round(ans$summaries$mean_w_late_all,digits = 3)
   final.n <- ans$summaries$two_n/2
