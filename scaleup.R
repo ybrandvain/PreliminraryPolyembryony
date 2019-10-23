@@ -11,8 +11,8 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   n.inds            <- z$params["n.inds"][1,1]
   selfing.rate      <- z$params["selfing.rate"][1,1]
   polyemb.p0        <- as.numeric(n.initial.poly.copies / (2 * z$params["n.inds"]))
-  fitness.effects   <- z$params["fitness.effects"][1,1]
-  dom.effects       <- z$params["dom.effects"][1,1]
+  fitness.effects   <- ifelse(  as.character(z$params["fitness.effects"][1,1]) == "uniform", -1,as.numeric(as.character(z$params["fitness.effects"][1,1])))
+  dom.effects       <- ifelse(  as.character(z$params["dom.effects"][1,1]) == "uniform", -1,as.numeric(as.character(z$params["dom.effects"][1,1])))
   U       <- z$params["U"][1,1]
   poly.models.list  <- list(equalizedW_compete = 1, equalizedW_nocompete = 2, nonequalizedW_compete = 3,nonequalizedW_nocompete = 4)
   poly.models.list  <- poly.models.list[which.model] 
@@ -24,8 +24,8 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
     #poly.models[X,]
     fixed.outcome <- list()
     times.fixed   <- 0
-    sim.summary   <- data.frame(matrix(nrow = n.introductions, ncol = length(z$params)))
-    colnames(sim.summary) <- colnames(z$params)
+#    sim.summary   <- data.frame(matrix(nrow = n.introductions, ncol = length(z$params)))
+#    colnames(sim.summary) <- colnames(z$params)
     for(i in 1:n.introductions) { # should be n.introductions
       print(i)
       this.sim <- runSim(n.inds                = n.inds,  
@@ -47,6 +47,8 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
                          just.return.genomes   = times.fixed >= n.times.to.track.fix,
                          dist.timing           = dist.timing)
       print(":)")
+      if(i == 1){sim.summary <- as_tibble(this.sim$params)}
+      if(i > 1){sim.summary[i,] <- this.sim$params}
       sim.summary[i,] <- this.sim$params
       if(this.sim$params[1,"fixed"]){     
         times.fixed <- times.fixed + 1
