@@ -112,12 +112,14 @@ grabInds          <- function(selectedEmbryos, embryos){
     dplyr::select(ind = mating, id = id, s = s, h = h, timing = timing) 
 }
 doMeiosis         <- function(tmp.genomes, parents){
-  to.meios <- nest(tmp.genomes, data = c(id, s, h, timing))         %>% 
+#  to.meios <- nest(tmp.genomes, data = c(id, s, h, timing))         %>%    # to new
+  to.meios <- nest(tmp.genomes, -ind)         %>% 
     arrange(ind)                              %>%  # major bug fix
     dplyr::slice(parents)                     %>% 
     dplyr::mutate(mating = 1:length(parents)) %>%
     dplyr::select(mating, data)               %>%
-    unnest(cols = c(data) )           
+    #unnest(cols = c(data) )           # to new
+    unnest()   
   poly.allele     <- to.meios$id %in% 10:11 
   to.transmit.hom <- duplicated(to.meios, fromLast = FALSE) & !poly.allele
   pick.one        <- duplicated(to.meios, fromLast = TRUE) | poly.allele  | to.transmit.hom
@@ -136,7 +138,8 @@ doMeiosis         <- function(tmp.genomes, parents){
     ungroup()
   # now shove them all together
   bind_rows(random.alleles, hom.transmit, dev.transmit )        %>% 
-    nest(data = c(id, s, h, timing))                            %>% 
+    nest(-mating)                                               %>%
+#   nest(data = c(id, s, h, timing))                            %>%  # to new
     dplyr::arrange(mating) 
 }
 makeBabies        <- function(tmp.genomes, mates){   
@@ -150,7 +153,8 @@ makeBabies        <- function(tmp.genomes, mates){
     gather(key = embryo, value = pat, -mating, - mat)                               %>%
     full_join(selfed, by = c("mating", "embryo"))                                   %>%
     gather(key = parent, value = haplo, -mating, - embryo,-selfed)                  %>% # syngamy
-    unnest(cols = c(haplo))                                                         # not sure about unnesting here.... 
+    unnest(haplo)    
+#   unnest(cols = c(haplo))                                                         # to new
 }
 summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
   muts <- tmp.genomes %>% 
@@ -211,7 +215,8 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
               w_early_poly_selfed_survive = sum(w * as.numeric(mono==0 & selfed == 1)) /sum(as.numeric(mono==0 & selfed == 1)),
               w_early_poly_out_survive    = sum(w * as.numeric(mono==0 & selfed == 0)) /sum(as.numeric(mono==0 & selfed == 0)))
   list(genome    = tmp.genomes, 
-       summaries = bind_cols(nest(muts, data= everything() ) %>% rename(muts = data), 
+       summaries = bind_cols(nest(muts, data= everything() ) %>% rename(muts = data),  # to new
+       #summaries = bind_cols(nest(muts, .key = muts), 
                              pop.stats,  
                              selfing.info , 
                              realized_selfing_by_mono,
