@@ -157,6 +157,7 @@ makeBabies        <- function(tmp.genomes, mates){
 #   unnest(cols = c(haplo))                                                         # to new
 }
 summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
+  recover()
   muts <- tmp.genomes %>% 
     mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% 
     group_by(id,s,h,timing) %>% 
@@ -215,8 +216,8 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
               w_early_poly_selfed_survive = sum(w * as.numeric(mono==0 & selfed == 1)) /sum(as.numeric(mono==0 & selfed == 1)),
               w_early_poly_out_survive    = sum(w * as.numeric(mono==0 & selfed == 0)) /sum(as.numeric(mono==0 & selfed == 0)))
   list(genome    = tmp.genomes, 
-       summaries = bind_cols(nest(muts, data= everything() ) %>% rename(muts = data),  # to new
-       #summaries = bind_cols(nest(muts, .key = muts), 
+       #summaries = bind_cols(nest(muts, data= everything() ) %>% rename(muts = data),  # to new
+       summaries = bind_cols(nest(muts)  %>% rename(muts = data), 
                              pop.stats,  
                              selfing.info , 
                              realized_selfing_by_mono,
