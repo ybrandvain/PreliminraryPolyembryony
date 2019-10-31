@@ -157,7 +157,6 @@ makeBabies        <- function(tmp.genomes, mates){
 #   unnest(cols = c(haplo))                                                         # to new
 }
 summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
-  recover()
   muts <- tmp.genomes %>% 
     mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% 
     group_by(id,s,h,timing) %>% 
