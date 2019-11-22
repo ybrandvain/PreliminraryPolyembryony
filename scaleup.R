@@ -44,12 +44,13 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
                          genome.id             = simID,
                          hard.embryo.selection = hard.embryo.selection,
                          p.poly.mono.geno      = p.poly.mono.geno,
-                         just.return.genomes   = times.fixed >= n.times.to.track.fix,
+                         just.return.genomes   = FALSE,
                          dist.timing           = dist.timing)
       print(":)")
+      if(class(this.sim$params$fitness.effects) == "factor"){this.sim$params$fitness.effects <- as.numeric(fitness.effects)}
+      if(class(this.sim$params$dom.effects) == "factor"){this.sim$params$dom.effects <- as.numeric(dom.effects)}
       if(i == 1){sim.summary <- as_tibble(this.sim$params)}
       if(i > 1){sim.summary[i,] <- this.sim$params}
-      sim.summary[i,] <- this.sim$params
       if(this.sim$params[1,"fixed"]){     
         times.fixed <- times.fixed + 1
         if( times.fixed <= n.times.to.track.fix){fixed.outcome[[times.fixed]] <- this.sim}
@@ -69,4 +70,3 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   )}))
   return(list(sim.summary = sim.summary, fixed.details = fixed.details))
 }
-

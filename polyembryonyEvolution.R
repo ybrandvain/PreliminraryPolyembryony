@@ -78,7 +78,7 @@ embryoFitness     <- function(tmp.embryos, p.poly.mono.geno, d2exclude = "L"){
 favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE, epsilon = 1e-16, hard.embryo.selection){
   if( hard.embryo.selection){
     temp.kidsW <- temp.kidsW                                    %>%
-      dplyr::mutate(alive = rbinom(n = n(),size = 1,prob = w ))    
+      mutate(alive = rbinom(n = n(),size = 1,prob = w ))    
     if(equalizedW &  hard.embryo.selection){
       temp.kidsW <- temp.kidsW                                   %>%
         group_by(mating)                                         %>%
@@ -270,6 +270,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   # recommend a value of approx 0.1 for invasion of / bunn in with soft selection
   # note: change the range of s here
   # hard.embryo.selection = TRUE. is selection on embryos hard or soft? 
+  # ignoring just.return.genomes
   # smallest.s the lowest selection coeficeint times N (so min.fitness effect is  smallest.s/n)
   if(fitness.effects == -1){fitness.effects <- "uniform"}
   if(dom.effects == -1){dom.effects <- "uniform"}
@@ -318,9 +319,6 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
                        existing.genome = !is.null(genomes), genom.id = genome.id,  last.gen = g, 
                        gen.after.fixed.or.lost  = gen.after.fixed.or.lost, fixed = fixed, equalizedW = equalizedW, 
                        compete = compete,hard.embryo.selection = hard.embryo.selection, p.poly.mono.geno, smallest.s)
-  #recover()
-  #if(length(gen.summary) >0){gen.summary <- do.call(bind_rows, gen.summary) }
-  #if(length(gen.summary) >0){gen.summary <- do.call(rbind, gen.summary) %>% mutate(gen = 1:g)}
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
 
