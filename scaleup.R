@@ -5,16 +5,17 @@ source("polyembryonyEvolution.R")
 source("processPoly.R")
 
 
-intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.track.fix = 10, n.initial.poly.copies = 1,which.model = 1:4){
+intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.track.fix = 10, n.initial.poly.copies = 1,which.model = 1:5){
   load(simID)
-  poly.models       <- data.frame( equalizedW = c(T,T,F,F),  compete = c(T,F,T,F))
+  poly.models       <- data.frame( equalizedW = c(T,T,F,F),  compete = c(T,F,T,F), e1_survive_ok =F)
+  poly.models       <- rbind(poly.models ,c(T,F,T))
   n.inds            <- z$params["n.inds"][1,1]
   selfing.rate      <- z$params["selfing.rate"][1,1]
   polyemb.p0        <- as.numeric(n.initial.poly.copies / (2 * z$params["n.inds"]))
   fitness.effects   <- ifelse(  as.character(z$params["fitness.effects"][1,1]) == "uniform", -1,as.numeric(as.character(z$params["fitness.effects"][1,1])))
   dom.effects       <- ifelse(  as.character(z$params["dom.effects"][1,1]) == "uniform", -1,as.numeric(as.character(z$params["dom.effects"][1,1])))
   U       <- z$params["U"][1,1]
-  poly.models.list  <- list(equalizedW_compete = 1, equalizedW_nocompete = 2, nonequalizedW_compete = 3,nonequalizedW_nocompete = 4)
+  poly.models.list  <- list(equalizedW_compete = 1, equalizedW_nocompete = 2, nonequalizedW_compete = 3,nonequalizedW_nocompete = 4, resurrection = 5)
   poly.models.list  <- poly.models.list[which.model] 
   dist.timing       <- as.numeric(strsplit(as.character(z$params["dist.timing"][1,1]),":")[[1]])
   names(dist.timing)<- c("E","B","L")
@@ -44,8 +45,10 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
                          genome.id             = simID,
                          hard.embryo.selection = hard.embryo.selection,
                          p.poly.mono.geno      = p.poly.mono.geno,
-                         just.return.genomes   = FALSE,
-                         dist.timing           = dist.timing)
+                         just.return.genomes   = times.fixed >= n.times.to.track.fix,
+                         dist.timing           = dist.timing,
+                         e1_survive_ok         = poly.models[X,"e1_survive_ok"]
+                         )
       print(":)")
       if(class(this.sim$params$fitness.effects) == "factor"){this.sim$params$fitness.effects <- as.numeric(fitness.effects)}
       if(class(this.sim$params$dom.effects) == "factor"){this.sim$params$dom.effects <- as.numeric(dom.effects)}

@@ -75,7 +75,7 @@ embryoFitness     <- function(tmp.embryos, p.poly.mono.geno, d2exclude = "L"){
     getFitness(dev.to.exclude = d2exclude, adult = FALSE)           %>% ungroup() 
 }
 
-favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE, epsilon = 1e-16, hard.embryo.selection){
+favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE, epsilon = 1e-16, hard.embryo.selection,e1_survive_ok){
   if( hard.embryo.selection){
     temp.kidsW <- temp.kidsW                                    %>%
       mutate(alive = rbinom(n = n(),size = 1,prob = w ))    
@@ -85,6 +85,7 @@ favoriteChild     <- function(temp.kidsW, equalizedW = TRUE, compete = TRUE, eps
         mutate(alive2 = sum(alive * as.numeric(embryo == "e1"))) %>% ungroup() %>%
         filter(alive2 == 1) %>% 
         select(-alive2)
+      if(e1_survive_ok){temp.kidsW <- temp.kidsW %>% mutate(alive = 1)} #weird flag to allow dead embryos to surive if e1 survived under experiental form of polyembryony 
     }
     temp.kidsW <- temp.kidsW                                       %>% 
       dplyr::filter(alive == 1)                                    
@@ -157,7 +158,15 @@ makeBabies        <- function(tmp.genomes, mates){
 #   unnest(cols = c(haplo))                                                         # to new
 }
 summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
-  muts <- tmp.genomes %>% 
+  n.intial  <- embryos$mating%>%unique()%>%length()
+  n.survive <- tmp.genomes$ind %>%unique()%>%length()
+  muts_e1      <- embryos %>% filter(embryo == "e1")%>% 
+    mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% 
+    group_by(id,s,h,timing) %>% 
+    tally() %>% 
+    ungroup()
+  #
+  muts_survive <- tmp.genomes %>%   # these are allele counts after embryo selection 
     mutate(s = ifelse(id %in%  c(10,11), id,s)) %>% 
     group_by(id,s,h,timing) %>% 
     tally() %>% 
@@ -169,26 +178,52 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
     summarize(reself = mean(selfed)) %>% 
     summarize(mono_realized_selfing =sum(as.numeric(mono == 1) *reself ) / sum(as.numeric(mono == 1)),
               poly_realized_selfing =sum(as.numeric(mono == 0) *reself )/ sum(as.numeric(mono == 0)))
-  pop.stats    <- muts %>% filter(timing == "D") %>%  
-    summarise(two_n = sum(n), freq_poly = sum(as.numeric(s == 11) * n/ two_n ))
-  # muts / ind by tming 
-  mut.per.ind <- muts %>% 
+  pop.stats    <- bind_cols(
+    muts_survive %>% 
+    filter(timing == "D") %>%
+    rename(n_alleles = n) %>%
+    summarise(two_n = sum(n_alleles), 
+              freq_poly_after_sel = sum(as.numeric(s == 11) * n_alleles/ two_n )),
+    muts_e1%>% 
+      summarise(freq_poly_e1 = sum(as.numeric(s == 11))/ (n.intial*2)  )
+    )
+  # muts / ind by tming survivors
+  mut.per.ind.survive <- muts_survive %>% 
         filter(timing !="D") %>% 
         group_by(timing) %>% 
-        tally(wt = n )
-  names(mut.per.ind )[2] <- "n" 
-  mut.per.ind <- mut.per.ind %>%
-    mutate(muts_per_ind = n / pop.stats$two_n)%>% 
+        rename(n_alleles = n) %>%
+        tally(wt = n_alleles ) %>%
+    mutate(timing = paste(timing,"survive",sep = "_"))
+  names(mut.per.ind.survive)[2] <- "n" 
+  mut.per.ind.survive <- mut.per.ind.survive %>%
+    mutate(muts_per_ind_survive = n / pop.stats$two_n)%>% 
     select(-n) %>%
-    spread(key = timing, value = muts_per_ind) 
-  if(nrow(mut.per.ind) >0){
-  names(mut.per.ind) <- paste(names(mut.per.ind),"perhaploidgenome",sep="_")
+    spread(key = timing, value = muts_per_ind_survive) 
+  if(nrow(mut.per.ind.survive) >0){
+  names(mut.per.ind.survive) <- paste(names(mut.per.ind.survive),"perhaploidgenome",sep="_")
   }
+  # muts / ind by tming all 
+  mut.per.ind.e1 <- muts_e1 %>% 
+    filter(timing !="D") %>% 
+    group_by(timing) %>% 
+    rename(n_alleles = n) %>%
+    tally(wt = n_alleles ) %>%
+    mutate(timing = paste(timing,"e1",sep = "_"))
+  names(mut.per.ind.e1)[2] <- "n" 
+  mut.per.ind.e1 <- mut.per.ind.e1 %>%
+    mutate(muts_per_ind_e1 = n / pop.stats$two_n)%>% 
+    select(-n) %>%
+    spread(key = timing, value = muts_per_ind_e1) 
+  if(nrow(mut.per.ind.e1) >0){
+    names(mut.per.ind.e1) <- paste(names(mut.per.ind.e1),"perhaploidgenome",sep="_")
+  }
+  
   w.all.stats <- full_join(
     embryoFitness(embryos,p.poly.mono.geno=0,d2exclude = "L") %>% 
       select(mating, embryo, w_early_all = w) %>%ungroup(),
     embryoFitness(embryos,p.poly.mono.geno=0,d2exclude = "E") %>% 
-      select(mating, embryo, w_late_all = w)%>%ungroup(), by = c("mating" , "embryo") ) %>% 
+      select(mating, embryo, w_late_all = w)%>%ungroup(), 
+    by = c("mating" , "embryo") ) %>% 
     summarize(mean_w_early_all = mean(w_early_all), 
               mean_w_late_all  = mean(w_late_all),
               var_w_early_all  = var(w_early_all), 
@@ -216,11 +251,13 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
               w_early_poly_out_survive    = sum(w * as.numeric(mono==0 & selfed == 0)) /sum(as.numeric(mono==0 & selfed == 0)))
   list(genome    = tmp.genomes, 
        #summaries = bind_cols(nest(muts, data= everything() ) %>% rename(muts = data),  # to new
-       summaries = bind_cols(nest(muts)  %>% rename(muts = data), 
+       summaries = bind_cols(nest(muts_survive)  %>% rename(muts_survive = data),
+                             nest(muts_e1)       %>% rename(mutse1 = data),
                              pop.stats,  
                              selfing.info , 
                              realized_selfing_by_mono,
-                             mut.per.ind, 
+                             mut.per.ind.e1, 
+                             mut.per.ind.survive, 
                              w.summary,
                              w_early_by_self_mono_survive ))
 }
@@ -230,13 +267,13 @@ summarizeGen      <- function(tmp.genomes, mates, embryos, selectedEmbryos){
 ##########################
 
 # running one generation
-oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing, equalizedW, compete, just.return.genomes,  p.poly.mono.geno,  hard.embryo.selection, smallest.s){
+oneGen <- function(tmp.genomes, n.inds, selfing.rate, U, fitness.effects, dom.effects, dist.timing, equalizedW, compete, just.return.genomes,  p.poly.mono.geno,  hard.embryo.selection, smallest.s, e1_survive_ok){
   tmp.genomes     <- addMutations(tmp.genomes, U, fitness.effects, dom.effects, dist.timing, n.inds, smallest.s)
   adult.fitness   <- getFitness(tmp.genomes, dev.to.exclude = "E")                       # Adult Fitness
   mates           <- findMates(adult.fitness, selfing.rate, n.inds = n.inds)             # Mating / Selection
   embryos         <- makeBabies(tmp.genomes, mates)                                      # meiosis is in here too
   kidsW           <- embryoFitness(embryos, p.poly.mono.geno)
-  selectedEmbryos <- favoriteChild(kidsW, equalizedW = equalizedW, compete = compete,   hard.embryo.selection =  hard.embryo.selection)                                                # pick your child !
+  selectedEmbryos <- favoriteChild(kidsW, equalizedW = equalizedW, compete = compete,   hard.embryo.selection =  hard.embryo.selection, e1_survive_ok = e1_survive_ok)                                                # pick your child !
   tmp.genomes     <- grabInds(selectedEmbryos = selectedEmbryos, embryos = embryos) %>%  # extract the genomes of selected embryos from our chosen children
     mutate(ind = as.numeric(factor(rank(ind, ties.method = "min"))))                     # ugh.. this last line is kinda gross. but necessary. in means inds are numbered 1:n... this is importnat for  other bits above
   if(just.return.genomes){return(list(genome = tmp.genomes))}
@@ -247,7 +284,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
                    dom.effects = "uniform", n.gen  = 1000, dist.timing  = c(E = 1/2, B = 0, L = 1/2), 
                    equalizedW = TRUE, compete = TRUE , p.poly.mono.geno = 0,  hard.embryo.selection = TRUE,
                    introduce.polyem = Inf, polyemb.p0  = .01, genomes = NULL, genome.id = NA,
-                   gen.after.loss   = 1,gen.after.fix    = 1, just.return.genomes = FALSE, smallest.s=20){
+                   gen.after.loss   = 1,gen.after.fix    = 1, just.return.genomes = FALSE, smallest.s=20, e1_survive_ok = FALSE){
   # n.inds           =      1000, 
   # selfing.rate     =         0, # recall selfing = 0 is RANDOM MATING and DOES NOT PRECLUDE SELFING
   # U                =         1, 
@@ -287,11 +324,20 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
     if((g %% 100) == 0){print(sprintf("SIMULATION progress, gen %s, genomeID %s",g,genome.id))}
     if(g == introduce.polyem){ans$genome <- introducePoly(ans$genome, polyemb.p0)} # introduce polyembryony allele
     g                 <- g + 1
+    print(g)
     ans               <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
-                                dom.effects, dist.timing, equalizedW = equalizedW, compete = compete, just.return.genomes = just.return.genomes,  p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection, smallest.s = smallest.s)
-    if(g == 1){ gen.summary    <- as_tibble(ans$summaries %>% mutate(gen = g))}
-    if(g > 1){ gen.summary[g,] <- ans$summaries %>% mutate(gen = g)}
-    status <- t(ans$genome  %>% filter(timing == "D")  %>% summarise(loss = sum(id == 11) == 0 , fix = sum(id == 10) == 0) )
+                                dom.effects, dist.timing, equalizedW = equalizedW, compete = compete, 
+                                just.return.genomes = just.return.genomes,  
+                                p.poly.mono.geno = p.poly.mono.geno,  
+                                hard.embryo.selection =  hard.embryo.selection, 
+                                smallest.s = smallest.s, e1_survive_ok =e1_survive_ok)
+    if(!just.return.genomes){
+      if(g == 1){ gen.summary    <- as_tibble(ans$summaries %>% mutate(gen = g))}
+      if(g > 1){ gen.summary[g,] <- ans$summaries %>% mutate(gen = g)}
+    }
+    status <- t(ans$genome  %>% 
+                  filter(timing == "D")  %>% 
+                  summarise(loss = sum(id == 11) == 0 , fix = sum(id == 10) == 0) )
     g.after.fix    <- g.after.fix   + as.numeric(status["fix",])
     g.after.loss   <- g.after.loss  + as.numeric(status["loss",])
     if(g >= n.gen   &  (g.after.loss >=  gen.after.loss)   |   (g.after.fix >=  gen.after.fix)){keep.going = FALSE} 
@@ -300,25 +346,42 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   lost <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, TRUE, FALSE))
   gen.after.fixed.or.lost <- ifelse(introduce.polyem == Inf, NA, ifelse(g.after.fix >0, g.after.fix, g.after.loss ))
   final.status <- ifelse(polyemb.p0 == 0 | (introduce.polyem > n.gen), "burnin", ifelse(status["loss",1], "loss", ifelse(status["fix",1], "fix","stopped")))
-  
-  ans$summaries <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
-                          dom.effects, dist.timing, equalizedW = equalizedW, 
-                          compete = compete, just.return.genomes = FALSE,  
-                          p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection, smallest.s = smallest.s)$summaries 
-  final.mean_w_early_all <- round(ans$summaries$mean_w_early_all,digits = 3)
-  final.mean_w_late_all <- round(ans$summaries$mean_w_late_all,digits = 3)
-  final.n <- ans$summaries$two_n/2
-  final.L.perhaploidgenome <- ifelse("L_perhaploidgenome" %in% names(ans$summaries),round(ans$summaries$L_perhaploidgenome,digits = 3),0)
-  final.E.perhaploidgenome <- ifelse("E_perhaploidgenome" %in% names(ans$summaries),round(ans$summaries$E_perhaploidgenome,digits = 3),0)
-  print(sprintf("SIMULATION done, stoppedGen %s, status %s, finalMeanWlateAll %s, finalMeanWearlyAll %s, Lperdiploidgenome %s, Eperdiploidgenome %s, genomeID %s", g, final.status, final.mean_w_late_all, final.mean_w_early_all, final.L.perhaploidgenome, final.E.perhaploidgenome, genome.id))
-
-  params <- data.frame(n.inds = n.inds, selfing.rate = selfing.rate, U = U, fitness.effects = fitness.effects,
-                       dom.effects = dom.effects, n.gen = n.gen, g = g, 
+  params <- data.frame(n.inds = n.inds, 
+                       selfing.rate = selfing.rate, 
+                       U = U, 
+                       fitness.effects = fitness.effects,
+                       dom.effects = dom.effects, 
+                       n.gen = n.gen, 
+                       g = g, 
                        dist.timing = paste(round(dist.timing, digits = 2), collapse = ":"),
-                       introduce.polyem = introduce.polyem, polyemb.p0  = polyemb.p0 , 
-                       existing.genome = !is.null(genomes), genom.id = genome.id,  last.gen = g, 
-                       gen.after.fixed.or.lost  = gen.after.fixed.or.lost, fixed = fixed, equalizedW = equalizedW, 
-                       compete = compete,hard.embryo.selection = hard.embryo.selection, p.poly.mono.geno, smallest.s)
+                       introduce.polyem = introduce.polyem, 
+                       polyemb.p0  = polyemb.p0 , 
+                       existing.genome = !is.null(genomes), 
+                       genom.id = genome.id,  
+                       last.gen = g, 
+                       gen.after.fixed.or.lost  = gen.after.fixed.or.lost, 
+                       fixed = fixed, 
+                       equalizedW = equalizedW, 
+                       compete = compete,
+                       e1_survive_ok = e1_survive_ok,
+                       hard.embryo.selection = hard.embryo.selection,
+                       p.poly.mono.geno=p.poly.mono.geno, 
+                       smallest.s= smallest.s,
+                       e1_survive_ok =e1_survive_ok)
+  if(just.return.genomes){gen.summary<-NULL}
+  if(!just.return.genomes){
+    ans$summaries <- oneGen(ans$genome, n.inds, selfing.rate, U, fitness.effects, 
+                            dom.effects, dist.timing, equalizedW = equalizedW, 
+                            compete = compete, just.return.genomes = just.return.genomes,  
+                            p.poly.mono.geno = p.poly.mono.geno,  hard.embryo.selection =  hard.embryo.selection, 
+                            smallest.s = smallest.s,e1_survive_ok =e1_survive_ok)$summaries 
+    final.mean_w_early_all <- round(ans$summaries$mean_w_early_all,digits = 3)
+    final.mean_w_late_all  <- round(ans$summaries$mean_w_late_all,digits = 3)
+    final.n <- ans$summaries$two_n/2
+    final.L.perhaploidgenome <- ifelse("L_perhaploidgenome" %in% names(ans$summaries),round(ans$summaries$L_perhaploidgenome,digits = 3),0)
+    final.E.perhaploidgenome <- ifelse("E_perhaploidgenome" %in% names(ans$summaries),round(ans$summaries$E_perhaploidgenome,digits = 3),0)
+    print(sprintf("SIMULATION done, stoppedGen %s, status %s, finalMeanWlateAll %s, finalMeanWearlyAll %s, Lperdiploidgenome %s, Eperdiploidgenome %s, genomeID %s", g, final.status, final.mean_w_late_all, final.mean_w_early_all, final.L.perhaploidgenome, final.E.perhaploidgenome, genome.id))
+  }
   return(list(genome = ans$genome, gen.summary = gen.summary,params = params))
 }
 
