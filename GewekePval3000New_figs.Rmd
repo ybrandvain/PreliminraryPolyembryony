@@ -1,0 +1,109 @@
+---
+title: "Geweke P-values figures"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+#  Data tidying etc
+
+```{r, message=FALSE,warning=FALSE}
+library(tidyverse)
+library(ggforce)
+load("GewekePvalues3000New.Robj")
+collapseFunOk  <- function(X){do.call(c,X)}
+collapseFunUgly <- function(X){sapply(X,as.character)}
+ugly.cols    <- c("fitness.effects", "dom.effects","dist.timing")
+ok.cols      <- setdiff(colnames(geweke_pvalues),ugly.cols  )
+geweke_pvalues <- as_tibble(geweke_pvalues)          %>%
+  mutate_at(ugly.cols, funs(collapseFunUgly ))   %>% 
+  mutate_at(ok.cols,   funs(collapseFunOk ))     
+```
+
+# Figures
+
+## realized_selfing
+
+```{r, message=FALSE,warning=FALSE, fig.height=2, echo=FALSE}
+ggplot(data = geweke_pvalues, 
+       aes(x = selfing.rate, y = realized_selfing, color = fitness.effects, shape = fitness.effects))+
+  geom_jitter(alpha = .3,height = 0,width = .01)+
+  facet_grid(~dom.effects,labeller = "label_both")+
+  stat_summary(fun.y = "mean", geom = "line")+
+  theme_light()                              + 
+  geom_hline(yintercept = 0.05)
+```
+
+## E_perhaploidgenome
+
+```{r, message=FALSE,warning=FALSE, fig.height=2, echo=FALSE}
+ggplot(data = geweke_pvalues, 
+       aes(x = selfing.rate, y = E_perhaploidgenome, color = fitness.effects, shape = fitness.effects))+
+  geom_jitter(alpha = .3,height = 0,width = .01)+
+  facet_grid(~dom.effects,labeller = "label_both")+
+  stat_summary(fun.y = "mean", geom = "line")+
+  theme_light()                              + 
+  geom_hline(yintercept = 0.05)
+```
+
+## L_perhaploidgenome
+
+```{r, message=FALSE,warning=FALSE, fig.height=2, echo=FALSE}
+ggplot(data = geweke_pvalues, 
+       aes(x = selfing.rate, y = L_perhaploidgenome, color = fitness.effects, shape = fitness.effects))+
+  geom_jitter(alpha = .3,height = 0,width = .01)+
+  facet_grid(~dom.effects,labeller = "label_both")+
+  stat_summary(fun.y = "mean", geom = "line")+
+  theme_light()                              + 
+  geom_hline(yintercept = 0.05)
+```
+
+
+## mean_w_late_survivors
+
+```{r, message=FALSE,warning=FALSE, fig.height=2, echo=FALSE}
+ggplot(data = geweke_pvalues, 
+       aes(x = selfing.rate, y = mean_w_late_survivors, color = fitness.effects, shape = fitness.effects))+
+  geom_jitter(alpha = .3,height = 0,width = .01)+
+  facet_grid(~dom.effects,labeller = "label_both")+
+  stat_summary(fun.y = "mean", geom = "line")+
+  theme_light()                              + 
+  geom_hline(yintercept = 0.05)
+```
+
+
+## mean_w_early_survivors
+```{r, message=FALSE,warning=FALSE, fig.height=2, echo=FALSE}
+ggplot(data = geweke_pvalues, 
+       aes(x = selfing.rate, y = mean_w_early_survivors, color = fitness.effects, shape = fitness.effects))+
+  geom_jitter(alpha = .3,height = 0,width = .01)+
+  facet_grid(~dom.effects,labeller = "label_both")+
+  stat_summary(fun.y = "mean", geom = "line")+
+  theme_light()                              + 
+  geom_hline(yintercept = 0.05)
+```
+
+## mean_w_early_all
+
+```{r, message=FALSE,warning=FALSE, fig.height=2, echo=FALSE}
+ggplot(data = geweke_pvalues, 
+       aes(x = selfing.rate, y = mean_w_early_all, color = fitness.effects, shape = fitness.effects))+
+  geom_jitter(alpha = .3,height = 0,width = .01)+
+  facet_grid(~dom.effects,labeller = "label_both")+
+  stat_summary(fun.y = "mean", geom = "line")+
+  theme_light()                              + 
+  geom_hline(yintercept = 0.05)
+```
+
+## mean_w_late_all
+
+```{r, message=FALSE,warning=FALSE, fig.height=2, echo=FALSE}
+ggplot(data = geweke_pvalues, 
+       aes(x = selfing.rate, y = mean_w_late_all, color = fitness.effects, shape = fitness.effects))+
+  geom_jitter(alpha = .3,height = 0,width = .01)+
+  facet_grid(~dom.effects,labeller = "label_both")+
+  stat_summary(fun.y = "mean", geom = "line")+
+  theme_light()                              + 
+  geom_hline(yintercept = 0.05)
+```
