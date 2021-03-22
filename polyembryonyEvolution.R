@@ -313,7 +313,7 @@ runSim <- function(n.inds = 1000, selfing.rate = 0, U = .5, fitness.effects  = "
   if(fitness.effects == -1){fitness.effects <- "uniform"}
   if(dom.effects == -1){dom.effects <- "uniform"}
   if(length(dist.timing) == 1){
-    dist.timing <- list(c(E = 1/2, B = 0, L = 1/2), c(E = 1, B = 0, L = 0), c(E = 0, B = 0, L = 1),c(E = 0, B = 1, L = 0),)[[dist.timing]]
+    dist.timing <- list(c(E = 1/2, B = 0, L = 1/2), c(E = 1, B = 0, L = 0), c(E = 0, B = 0, L = 1),c(E = 0, B = 1, L = 0))[[dist.timing]]
   }
   g             <- 0
   g.after.fix   <- 0 
