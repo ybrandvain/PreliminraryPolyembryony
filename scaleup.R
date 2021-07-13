@@ -65,11 +65,10 @@ intro.poly.run <- function(simID, n.introductions, n.gen.after.fix, n.times.to.t
   sim.summary   <- as_tibble(do.call(rbind,lapply(intro.results, function(X){X$sim.summary})))
   fixed.details <- bind_rows(lapply(intro.results, function(TMp){
     bind_rows(lapply(TMp$fixed.outcome, function(TMP){
-      bind_cols(as_tibble(nest(TMP$gen.summary)),
-                as_tibble(nest(TMP$genome)),
-                as_tibble(TMP$params))%>% 
-        rename(gen.summary = data , genome = data1)
-    })
-  )}))
+      bind_cols(as_tibble(nest(TMP$gen.summary, data = everything())) %>% rename(gen.summary = data),
+                as_tibble(nest(TMP$genome, data = everything())  %>% rename(genome = data) ),
+                as_tibble(TMP$params, data = everything()))
+      }))
+    }))
   return(list(sim.summary = sim.summary, fixed.details = fixed.details))
 }
